@@ -17,6 +17,7 @@ package oci2vm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -130,10 +131,10 @@ func MoveFile(sourcePath, destPath string) error {
 		inputFile.Close()
 		return fmt.Errorf("failed to open dest file: %s", err)
 	}
-	defer outputFile.Close()
 	_, err = sparsecat.NewDecoder(sparsecat.NewEncoder(inputFile)).WriteTo(outputFile)
 	inputFile.Close()
-	if err != nil {
+	// the source is only removed once the output is closed without error
+	if err := errors.Join(err, outputFile.Close()); err != nil {
 		return fmt.Errorf("failed to write to output file: %s", err)
 	}
 	// The copy was successful, so now delete the original file
