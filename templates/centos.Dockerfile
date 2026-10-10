@@ -1,3 +1,5 @@
+# Modifications copyright 2026 jimyag. See the git history for details.
+
 FROM {{ .Image }} AS rootfs
 
 USER root
@@ -20,11 +22,18 @@ RUN yum install -y \
     mkdir -p /boot && \
     find /boot -type l -exec rm {} \;
 
+{{- if eq .Release.VersionID "7" }}
+# the legacy network service fails without this file, NetworkManager still
+# configures the network
+RUN touch /etc/sysconfig/network
+{{- end }}
+
 {{- if .GrubBIOS }}
 RUN yum install -y grub2
 {{- end }}
 {{- if .GrubEFI }}
-RUN yum install -y grub2 grub2-efi-x64 grub2-efi-x64-modules
+RUN ARCH="$([ "$(uname -m)" = "x86_64" ] && echo x64 || echo aa64)"; \
+    yum install -y grub2 grub2-efi-${ARCH} grub2-efi-${ARCH}-modules
 {{- end }}
 
 {{ if .Luks }}
@@ -35,6 +44,22 @@ RUN dracut --no-hostonly --regenerate-all --force
 {{ end }}
 
 {{ if .Password }}RUN echo "root:{{ .Password }}" | chpasswd {{ end }}
+
+{{- if .CloudInit }}
+# the image network configuration is used instead of the cloud-init one,
+# growpart lets cloud-init extend the root partition to the disk size,
+# hostname and service, missing from some images, are used to set the
+# instance hostname and to restart sshd
+RUN yum install -y cloud-init cloud-utils-growpart hostname /usr/sbin/service && \
+    printf 'network:\n  config: disabled\n' > /etc/cloud/cloud.cfg.d/99-d2vm-network.cfg
+{{- end }}
+
+{{- if .SSH }}
+# sshd-keygen generates the missing host keys when sshd starts
+RUN yum install -y openssh-server && \
+    rm -f /etc/ssh/ssh_host_* && \
+    systemctl enable sshd
+{{- end }}
 
 {{- if .Grub }}
 RUN set -e; \

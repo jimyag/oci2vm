@@ -1,4 +1,5 @@
 // Copyright 2022 Linka Cloud  All rights reserved.
+// Modifications copyright 2026 jimyag. See the git history for details.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -114,13 +115,14 @@ var (
 				d2vm.WithDNS(dns),
 				d2vm.WithDNSSearch(dnsSearch),
 				d2vm.WithExtraHosts(extraHosts),
+				d2vm.WithEntrypointService(entrypointService),
+				d2vm.WithCloudInit(cloudInit),
+				d2vm.WithSSH(ssh),
 			); err != nil {
 				return err
 			}
-			if uid, ok := sudoUser(); ok {
-				if err := os.Chown(output, uid, uid); err != nil {
-					return err
-				}
+			if err := chownOutput(output); err != nil {
+				return err
 			}
 			return maybeMakeContainerDisk(cmd.Context())
 		},

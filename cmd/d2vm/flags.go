@@ -1,4 +1,5 @@
 // Copyright 2022 Linka Cloud  All rights reserved.
+// Modifications copyright 2026 jimyag. See the git history for details.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -51,6 +52,10 @@ var (
 	hosts     []string
 
 	extraHosts map[string]string
+
+	entrypointService bool
+	cloudInit         bool
+	ssh               bool
 )
 
 func validateFlags() (err error) {
@@ -128,9 +133,12 @@ func buildFlags() *pflag.FlagSet {
 	flags.StringVar(&platform, "platform", d2vm.Arch, "Platform to use for the container disk image, linux/arm64 and linux/arm64 are supported")
 	flags.BoolVar(&pull, "pull", false, "Always pull docker image")
 	flags.StringVar(&hostname, "hostname", "localhost", "Hostname to set in the generated image")
-	flags.StringSliceVar(&dns, "dns", []string{}, "DNS servers to set in the generated image")
+	flags.StringSliceVar(&dns, "dns", []string{}, "DNS servers to set in the generated image, defaults to the ones provided by DHCP")
 	flags.StringSliceVar(&dnsSearch, "dns-search", []string{}, "DNS search domains to set in the generated image")
 	flags.StringSliceVar(&hosts, "add-host", []string{}, "Add a custom host-to-IP mapping (host:ip) to the /etc/hosts file in the generated image")
+	flags.BoolVar(&entrypointService, "entrypoint-service", false, "Run the image entrypoint and command as the d2vm-entrypoint service at boot, with the image environment, working directory and user")
+	flags.BoolVar(&cloudInit, "cloud-init", false, "Install cloud-init, its network configuration being disabled in favor of the image one")
+	flags.BoolVar(&ssh, "ssh", false, "Install and enable an OpenSSH server, the host keys are generated at first boot")
 	return flags
 }
 

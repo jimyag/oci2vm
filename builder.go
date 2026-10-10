@@ -1,4 +1,5 @@
 // Copyright 2022 Linka Cloud  All rights reserved.
+// Modifications copyright 2026 jimyag. See the git history for details.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,8 +16,11 @@
 package d2vm
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	exec2 "os/exec"
 	"path/filepath"
@@ -88,9 +92,12 @@ type builder struct {
 	dns       []string
 	dnsSearch []string
 	hosts     string
+
+	// entrypoint, when set, is run as a service at boot
+	entrypoint *DockerImageConfig
 }
 
-func NewBuilder(ctx context.Context, workdir, imgTag, disk string, size uint64, osRelease OSRelease, format string, cmdLineExtra string, splitBoot bool, bootFS BootFS, bootSize uint64, luksPassword string, bootLoader string, platform, hostname string, dns, dnsSearch []string, extraHosts map[string]string) (Builder, error) {
+func NewBuilder(ctx context.Context, workdir, imgTag, disk string, size uint64, osRelease OSRelease, format string, cmdLineExtra string, splitBoot bool, bootFS BootFS, bootSize uint64, luksPassword string, bootLoader string, platform, hostname string, dns, dnsSearch []string, extraHosts map[string]string, entrypoint *DockerImageConfig) (Builder, error) {
 	var arch string
 	switch platform {
 	case "linux/amd64":
@@ -187,9 +194,6 @@ func NewBuilder(ctx context.Context, workdir, imgTag, disk string, size uint64, 
 	if hostname == "" {
 		hostname = "localhost"
 	}
-	if len(dns) == 0 {
-		dns = []string{"8.8.8.8"}
-	}
 	hosts := hosts
 	for k, v := range extraHosts {
 		hosts += fmt.Sprintf("%s %s\n", v, k)
@@ -214,6 +218,7 @@ func NewBuilder(ctx context.Context, workdir, imgTag, disk string, size uint64, 
 		dns:          dns,
 		dnsSearch:    dnsSearch,
 		hosts:        hosts,
+		entrypoint:   entrypoint,
 	}
 	if err := b.checkDependencies(); err != nil {
 		return nil, err
@@ -286,6 +291,10 @@ func (b *builder) makeImg(ctx context.Context) error {
 			"mklabel", "msdos", "mkpart", "primary", "1Mib", fmt.Sprintf("%dMib", b.bootSize),
 			"mkpart", "primary", fmt.Sprintf("%dMib", b.bootSize), "100%",
 			"set", "1", "boot", "on",
+		}
+		if b.bootFS.IsFat() {
+			// mark the fat boot partition as the EFI System Partition (type 0xef)
+			args = append(args, "set", "1", "esp", "on")
 		}
 	} else {
 		args = []string{"-s", b.diskRaw, "mklabel", "msdos", "mkpart", "primary", "1Mib", "100%", "set", "1", "boot", "on"}
@@ -428,7 +437,7 @@ func (b *builder) setupRootFS(ctx context.Context) (err error) {
 	if err := b.chWriteFile("/etc/fstab", fstab, perm); err != nil {
 		return err
 	}
-	if err := b.chWriteFile("/etc/resolv.conf", b.resolvConf(), 0644); err != nil {
+	if err := b.setupResolvConf(); err != nil {
 		return err
 	}
 	if err := b.chWriteFile("/etc/hostname", b.hostname+"\n", perm); err != nil {
@@ -437,11 +446,15 @@ func (b *builder) setupRootFS(ctx context.Context) (err error) {
 	if err := b.chWriteFile("/etc/hosts", b.hosts, perm); err != nil {
 		return err
 	}
-	// TODO(adphi): is it the righ fix ?
-	if err := os.RemoveAll("/usr/sbin/policy-rc.d"); err != nil {
+	// container base images ship a policy-rc.d forbidding services to start
+	// when packages are installed, which must not stay in the virtual machine
+	if err := os.RemoveAll(b.chPath("/usr/sbin/policy-rc.d")); err != nil {
 		return err
 	}
 	if err := os.RemoveAll(b.chPath("/.dockerenv")); err != nil {
+		return err
+	}
+	if err := b.setupEntrypointService(); err != nil {
 		return err
 	}
 
@@ -483,6 +496,20 @@ func (b *builder) cmdline(_ context.Context) string {
 
 func (b *builder) installBootloader(ctx context.Context) error {
 	logrus.Infof("installing bootloader")
+	// grub-mkconfig only uses root=UUID=... when /dev/disk/by-uuid lists the root
+	// filesystem, otherwise the build loop device path (e.g. /dev/mapper/loop0p2)
+	// ends up in the kernel command line. udev does not run in the build
+	// container, so create the link for the duration of the setup.
+	link := filepath.Join("/dev/disk/by-uuid", b.rootUUID)
+	if _, err := os.Lstat(link); errors.Is(err, fs.ErrNotExist) {
+		if err := os.MkdirAll(filepath.Dir(link), 0755); err != nil {
+			return err
+		}
+		if err := os.Symlink(ifElse(b.isLuksEnabled(), b.mappedCryptRoot, b.rootPart), link); err != nil {
+			return err
+		}
+		defer os.Remove(link)
+	}
 	return b.bootloader.Setup(ctx, b.loDevice, b.mntPoint, b.cmdline(ctx))
 }
 
@@ -511,6 +538,82 @@ func (b *builder) chPath(path string) string {
 
 func (b *builder) isLuksEnabled() bool {
 	return b.luksPassword != ""
+}
+
+// setupResolvConf writes the --dns and --dns-search settings when given.
+// Otherwise the network stack provides the name servers: systemd-resolved when
+// the image enables it, or the DHCP client, which rewrites /etc/resolv.conf.
+func (b *builder) setupResolvConf() error {
+	p := b.chPath("/etc/resolv.conf")
+	// may be a symlink, which os.WriteFile would follow
+	if err := os.RemoveAll(p); err != nil {
+		return err
+	}
+	if len(b.dns) == 0 && len(b.dnsSearch) == 0 && b.isResolvedEnabled() {
+		return os.Symlink("../run/systemd/resolve/stub-resolv.conf", p)
+	}
+	return os.WriteFile(p, []byte(b.resolvConf()), 0644)
+}
+
+func (b *builder) isResolvedEnabled() bool {
+	// alias created by "systemctl enable systemd-resolved"
+	_, err := os.Lstat(b.chPath("/etc/systemd/system/dbus-org.freedesktop.resolve1.service"))
+	return err == nil
+}
+
+// setupEntrypointService installs the image Entrypoint and Cmd as a service
+// started at boot, like "docker run" would start the container.
+func (b *builder) setupEntrypointService() error {
+	if b.entrypoint == nil {
+		return nil
+	}
+	logrus.Infof("installing the image entrypoint as the %s service", entrypointName)
+	var script bytes.Buffer
+	if err := (DockerImage{DockerImageConfig: *b.entrypoint}).AsRunScript(&script); err != nil {
+		return err
+	}
+	if err := b.chWriteFileAll(entrypointScript, script.String(), 0755); err != nil {
+		return err
+	}
+	svc := newEntrypointService(b.entrypoint.User)
+	var def bytes.Buffer
+	if b.osRelease.ID == ReleaseAlpine {
+		if err := entrypointOpenRCServiceTemplate.Execute(&def, svc); err != nil {
+			return err
+		}
+		path := "/etc/init.d/" + entrypointName
+		if err := b.chWriteFileAll(path, def.String(), 0755); err != nil {
+			return err
+		}
+		return b.chSymlink(path, "/etc/runlevels/default/"+entrypointName)
+	}
+	if err := entrypointSystemdUnitTemplate.Execute(&def, svc); err != nil {
+		return err
+	}
+	path := "/etc/systemd/system/" + entrypointName + ".service"
+	if err := b.chWriteFileAll(path, def.String(), perm); err != nil {
+		return err
+	}
+	return b.chSymlink(path, "/etc/systemd/system/multi-user.target.wants/"+entrypointName+".service")
+}
+
+// chWriteFileAll is chWriteFile creating the missing parent directories.
+func (b *builder) chWriteFileAll(path string, content string, perm os.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(b.chPath(path)), 0755); err != nil {
+		return err
+	}
+	return b.chWriteFile(path, content, perm)
+}
+
+// chSymlink creates link pointing to target, both being paths inside the image.
+func (b *builder) chSymlink(target, link string) error {
+	if err := os.MkdirAll(filepath.Dir(b.chPath(link)), 0755); err != nil {
+		return err
+	}
+	if err := os.RemoveAll(b.chPath(link)); err != nil {
+		return err
+	}
+	return os.Symlink(target, b.chPath(link))
 }
 
 func (b *builder) resolvConf() string {

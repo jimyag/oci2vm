@@ -1,3 +1,5 @@
+# Modifications copyright 2026 jimyag. See the git history for details.
+
 FROM {{ .Image }} AS rootfs
 
 USER root
@@ -29,6 +31,21 @@ allow-hotplug eth0\n\
 iface eth0 inet dhcp\n\
 ' > /etc/network/interfaces
 {{ end }}
+
+{{- if .CloudInit }}
+# the image network configuration is used instead of the cloud-init one,
+# growpart and resize2fs let cloud-init extend the root filesystem to the disk size
+RUN apk add --no-cache cloud-init cloud-utils-growpart e2fsprogs-extra && \
+    setup-cloud-init && \
+    printf 'network:\n  config: disabled\n' > /etc/cloud/cloud.cfg.d/99-d2vm-network.cfg
+{{- end }}
+
+{{- if .SSH }}
+# the sshd service generates the missing host keys when it starts
+RUN apk add --no-cache openssh-server && \
+    rm -f /etc/ssh/ssh_host_* && \
+    rc-update add sshd default
+{{- end }}
 
 {{ if .Luks }}
 RUN apk add --no-cache cryptsetup && \

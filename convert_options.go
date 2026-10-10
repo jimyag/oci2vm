@@ -1,4 +1,5 @@
 // Copyright 2022 Linka Cloud  All rights reserved.
+// Modifications copyright 2026 jimyag. See the git history for details.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -39,6 +40,10 @@ type convertOptions struct {
 	dns       []string
 	dnsSearch []string
 	hosts     map[string]string
+
+	entrypointService bool
+	cloudInit         bool
+	ssh               bool
 }
 
 func (o *convertOptions) hasGrubBIOS() bool {
@@ -154,5 +159,26 @@ func WithDNSSearch(dnsSearch []string) ConvertOption {
 func WithExtraHosts(hosts map[string]string) ConvertOption {
 	return func(o *convertOptions) {
 		o.hosts = hosts
+	}
+}
+
+// WithEntrypointService runs the image Entrypoint and Cmd as a service at boot.
+func WithEntrypointService(b bool) ConvertOption {
+	return func(o *convertOptions) {
+		o.entrypointService = b
+	}
+}
+
+// WithCloudInit installs cloud-init in the image.
+func WithCloudInit(b bool) ConvertOption {
+	return func(o *convertOptions) {
+		o.cloudInit = b
+	}
+}
+
+// WithSSH installs an OpenSSH server, its host keys being generated at first boot.
+func WithSSH(b bool) ConvertOption {
+	return func(o *convertOptions) {
+		o.ssh = b
 	}
 }

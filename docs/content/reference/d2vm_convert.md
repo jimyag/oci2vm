@@ -14,8 +14,10 @@ d2vm convert [docker image] [flags]
       --boot-fs string             Filesystem to use for the boot partition, ext4 or fat32
       --boot-size uint             Size of the boot partition in MB (default 100)
       --bootloader string          Bootloader to use: syslinux, grub, grub-bios, grub-efi, defaults to syslinux on amd64 and grub-efi on arm64
-      --dns strings                DNS servers to set in the generated image
+      --cloud-init                 Install cloud-init, its network configuration being disabled in favor of the image one
+      --dns strings                DNS servers to set in the generated image, defaults to the ones provided by DHCP
       --dns-search strings         DNS search domains to set in the generated image
+      --entrypoint-service         Run the image entrypoint and command as the d2vm-entrypoint service at boot, with the image environment, working directory and user
       --force                      Override output qcow2 image
   -h, --help                       help for convert
       --hostname string            Hostname to set in the generated image (default "localhost")
@@ -30,6 +32,7 @@ d2vm convert [docker image] [flags]
       --raw                        Just convert the container to virtual machine image without installing anything more
   -s, --size string                The output image size (default "10G")
       --split-boot                 Split the boot partition from the root partition
+      --ssh                        Install and enable an OpenSSH server, the host keys are generated at first boot
   -t, --tag string                 Container disk Docker image tag
 ```
 

@@ -1,4 +1,5 @@
 // Copyright 2022 Linka Cloud  All rights reserved.
+// Modifications copyright 2026 jimyag. See the git history for details.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,8 +21,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
@@ -136,22 +135,4 @@ func (f *logfmtFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 
 func isRoot() bool {
 	return os.Geteuid() == 0
-}
-
-func sudoUser() (uid int, sudo bool) {
-	// if we are not running on linux, docker handle files user's permissions,
-	// so we don't need to check for sudo here
-	if runtime.GOOS != "linux" {
-		return
-	}
-	v := os.Getenv("SUDO_UID")
-	if v == "" {
-		return 0, false
-	}
-	uid, err := strconv.Atoi(v)
-	if err != nil {
-		logrus.Errorf("invalid SUDO_UID: %s", v)
-		return 0, false
-	}
-	return uid, true
 }

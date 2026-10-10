@@ -1,4 +1,5 @@
 // Copyright 2022 Linka Cloud  All rights reserved.
+// Modifications copyright 2026 jimyag. See the git history for details.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -68,6 +69,8 @@ type Dockerfile struct {
 	Luks           bool
 	GrubBIOS       bool
 	GrubEFI        bool
+	CloudInit      bool
+	SSH            bool
 	tmpl           *template.Template
 }
 

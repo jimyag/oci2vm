@@ -1,4 +1,5 @@
 # Copyright 2022 Linka Cloud  All rights reserved.
+# Modifications copyright 2026 jimyag. See the git history for details.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,6 +46,9 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=docker:dind /usr/local/bin/docker /usr/local/bin/
+# without buildx, docker build falls back to the legacy builder, which fails to
+# build images for another platform than the docker host one
+COPY --from=docker:dind /usr/local/libexec/docker/cli-plugins/docker-buildx /usr/local/libexec/docker/cli-plugins/
 
 COPY --from=builder /d2vm/d2vm /usr/local/bin/
 

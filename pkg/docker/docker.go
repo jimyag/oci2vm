@@ -1,4 +1,5 @@
 // Copyright 2022 Linka Cloud  All rights reserved.
+// Modifications copyright 2026 jimyag. See the git history for details.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -149,6 +150,8 @@ func RunD2VM(ctx context.Context, image, version, in, out, cmd string, args ...s
 		"-e",
 		// yes... it is kind of a dirty hack
 		fmt.Sprintf("SUDO_UID=%d", os.Getuid()),
+		"-e",
+		fmt.Sprintf("SUDO_GID=%d", os.Getgid()),
 		"-v",
 		fmt.Sprintf("%s:/var/run/docker.sock", dockerSocket()),
 		"-v",

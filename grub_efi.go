@@ -1,4 +1,5 @@
 // Copyright 2023 Linka Cloud  All rights reserved.
+// Modifications copyright 2026 jimyag. See the git history for details.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -69,11 +70,8 @@ func (g grubEFIProvider) Name() string {
 }
 
 func checkGrubEFISupport(r OSRelease) error {
-	if r.ID == ReleaseCentOS {
-		return fmt.Errorf("grub (efi) is not supported for CentOS, use grub-bios instead")
-	}
 	v, _ := strconv.Atoi(strings.Split(r.VersionID, ".")[0])
-	if (r.ID == ReleaseAlmaLinux || r.ID == ReleaseRocky) && v < 9 {
+	if (r.ID == ReleaseCentOS || r.ID == ReleaseAlmaLinux || r.ID == ReleaseRocky) && v < 9 {
 		return fmt.Errorf("grub (efi) is not supported for %s (%s), use 9+ releases or grub-bios instead", r.ID, r.VersionID)
 	}
 	return nil

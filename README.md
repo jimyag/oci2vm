@@ -171,8 +171,10 @@ Flags:
       --boot-fs string             Filesystem to use for the boot partition, ext4 or fat32
       --boot-size uint             Size of the boot partition in MB (default 100)
       --bootloader string          Bootloader to use: syslinux, grub, grub-bios, grub-efi, defaults to syslinux on amd64 and grub-efi on arm64
-      --dns strings                DNS servers to set in the generated image
+      --cloud-init                 Install cloud-init, its network configuration being disabled in favor of the image one
+      --dns strings                DNS servers to set in the generated image, defaults to the ones provided by DHCP
       --dns-search strings         DNS search domains to set in the generated image
+      --entrypoint-service         Run the image entrypoint and command as the d2vm-entrypoint service at boot, with the image environment, working directory and user
       --force                      Override output qcow2 image
   -h, --help                       help for convert
       --hostname string            Hostname to set in the generated image (default "localhost")
@@ -187,6 +189,7 @@ Flags:
       --raw                        Just convert the container to virtual machine image without installing anything more
   -s, --size string                The output image size (default "10G")
       --split-boot                 Split the boot partition from the root partition
+      --ssh                        Install and enable an OpenSSH server, the host keys are generated at first boot
   -t, --tag string                 Container disk Docker image tag
 
 Global Flags:
@@ -333,8 +336,10 @@ Flags:
       --boot-fs string             Filesystem to use for the boot partition, ext4 or fat32
       --boot-size uint             Size of the boot partition in MB (default 100)
       --bootloader string          Bootloader to use: syslinux, grub, grub-bios, grub-efi, defaults to syslinux on amd64 and grub-efi on arm64
-      --dns strings                DNS servers to set in the generated image
+      --cloud-init                 Install cloud-init, its network configuration being disabled in favor of the image one
+      --dns strings                DNS servers to set in the generated image, defaults to the ones provided by DHCP
       --dns-search strings         DNS search domains to set in the generated image
+      --entrypoint-service         Run the image entrypoint and command as the d2vm-entrypoint service at boot, with the image environment, working directory and user
       --build-arg stringArray      Set build-time variables
   -f, --file string                Name of the Dockerfile
       --force                      Override output qcow2 image
@@ -351,6 +356,7 @@ Flags:
       --raw                        Just convert the container to virtual machine image without installing anything more
   -s, --size string                The output image size (default "10G")
       --split-boot                 Split the boot partition from the root partition
+      --ssh                        Install and enable an OpenSSH server, the host keys are generated at first boot
   -t, --tag string                 Container disk Docker image tag
 
 Global Flags:
@@ -368,6 +374,32 @@ Or if you want to create a VirtualBox image:
 ```bash
 sudo d2vm build -p MyP4Ssw0rd -f ubuntu.Dockerfile -o ubuntu.vdi .
 ```
+
+### Running the image entrypoint, cloud-init and SSH
+
+By default, the virtual machine only boots the distribution: the image `ENTRYPOINT` and `CMD` are not run.
+
+- `--entrypoint-service` runs them at boot as the `d2vm-entrypoint` service (a systemd unit, or an OpenRC service on Alpine),
+  with the image `ENV`, `WORKDIR` and `USER`. The service runs the generated `/usr/local/bin/d2vm-entrypoint` script
+  and restarts it when it fails.
+- `--cloud-init` installs cloud-init, so that users, SSH keys and user data can be provided at boot,
+  e.g. by KubeVirt `cloudInitNoCloud` volumes. The network stays configured by the image (DHCP on `eth0`):
+  the cloud-init network configuration is disabled in `/etc/cloud/cloud.cfg.d/99-d2vm-network.cfg`.
+  `growpart` and `resize2fs` are installed, so that cloud-init extends the root filesystem to the disk size.
+  On Debian, Kali and Ubuntu, the cloud-init `locale` module is disabled in `/etc/cloud/cloud.cfg.d/99-d2vm-locale.cfg`:
+  it needs the `locales` package, which container images do not ship.
+- `--ssh` installs and enables an OpenSSH server. The host keys generated at build time are removed:
+  each virtual machine generates its own at first boot.
+
+```bash
+sudo d2vm build -f app.Dockerfile -o app.qcow2 --entrypoint-service --cloud-init --ssh .
+```
+
+Unless `--dns` or `--dns-search` are set, the name servers are the ones provided by DHCP,
+through systemd-resolved when the image enables it (netplan), or written to `/etc/resolv.conf` by the DHCP client.
+
+When run as root, `d2vm` gives the output image to the user who ran `sudo`, or else to the owner of the output directory,
+e.g. the host directory mounted in the d2vm container.
 
 ### KubeVirt Container Disk Images
 
@@ -387,7 +419,7 @@ You can find the Dockerfiles used to install the Kernel in the [templates](templ
 
 ### TODO / Questions:
 
-- [ ] Create service from `ENTRYPOINT` `CMD` `WORKDIR` and `ENV` instructions ?
+- [x] Create service from `ENTRYPOINT` `CMD` `WORKDIR` and `ENV` instructions ?
 - [ ] Inject Image `ENV` variables into `.bashrc` or other service environment file ?
 - [x] Use image layers to create *rootfs* instead of container ?
 

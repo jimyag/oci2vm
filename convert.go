@@ -1,4 +1,5 @@
 // Copyright 2022 Linka Cloud  All rights reserved.
+// Modifications copyright 2026 jimyag. See the git history for details.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -50,11 +51,30 @@ func Convert(ctx context.Context, img string, opts ...ConvertOption) error {
 		return fmt.Errorf("luks is not supported for %s %s", r.Name, r.Version)
 	}
 
+	var entrypoint *DockerImageConfig
+	if o.entrypointService {
+		c, err := FetchDockerImageConfig(ctx, img)
+		if err != nil {
+			return err
+		}
+		if len(c.Entrypoint) == 0 && len(c.Cmd) == 0 {
+			logrus.Warnf("%s has neither entrypoint nor command: no service to install", img)
+		} else {
+			entrypoint = &c
+		}
+	}
+
+	if o.raw && (o.cloudInit || o.ssh) {
+		logrus.Warnf("raw conversion does not install packages: ignoring cloud-init and ssh")
+	}
+
 	if !o.raw {
 		d, err := NewDockerfile(r, img, o.password, o.networkManager, o.luksPassword != "", o.hasGrubBIOS(), o.hasGrubEFI())
 		if err != nil {
 			return err
 		}
+		d.CloudInit = o.cloudInit
+		d.SSH = o.ssh
 		logrus.Infof("docker image based on %s %s", d.Release.Name, d.Release.Version)
 		p := filepath.Join(tmpPath, docker.FormatImgName(img))
 		dir := filepath.Dir(p)
@@ -88,7 +108,7 @@ func Convert(ctx context.Context, img string, opts ...ConvertOption) error {
 	if format == "" {
 		format = "raw"
 	}
-	b, err := NewBuilder(ctx, tmpPath, imgUUID, "", o.size, r, format, o.cmdLineExtra, o.splitBoot, o.bootFS, o.bootSize, o.luksPassword, o.bootLoader, o.platform, o.hostname, o.dns, o.dnsSearch, o.hosts)
+	b, err := NewBuilder(ctx, tmpPath, imgUUID, "", o.size, r, format, o.cmdLineExtra, o.splitBoot, o.bootFS, o.bootSize, o.luksPassword, o.bootLoader, o.platform, o.hostname, o.dns, o.dnsSearch, o.hosts, entrypoint)
 	if err != nil {
 		return err
 	}
