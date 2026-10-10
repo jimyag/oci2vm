@@ -40,7 +40,9 @@ var (
 	rootCmd = &cobra.Command{
 		Use:          "oci2vm",
 		SilenceUsage: true,
-		Version:      oci2vm.Version,
+		// main logs the returned error
+		SilenceErrors: true,
+		Version:       oci2vm.Version,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			switch timeFormat {
 			case "full", "f":
