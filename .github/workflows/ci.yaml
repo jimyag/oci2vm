@@ -12,34 +12,25 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v7
       with:
         # fetching all tags is required for the Makefile to compute the right version
         fetch-depth: 0
 
     - name: Set up Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v7
       with:
-        go-version: "1.25"
+        go-version-file: go.mod
+        cache-dependency-path: go.sum
 
     - name: Set up QEMU dependency
-      uses: docker/setup-qemu-action@v1
+      uses: docker/setup-qemu-action@v4
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
+      uses: docker/setup-buildx-action@v4
 
     - name: Setup dependencies
       run: sudo apt update && sudo apt install -y util-linux udev parted e2fsprogs mount tar extlinux qemu-utils qemu-system
-
-    - name: Share cache with other actions
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/go/pkg/mod
-          /tmp/.buildx-cache
-        key: ${{ runner.os }}-tests-${{ github.sha }}
-        restore-keys: |
-          ${{ runner.os }}-tests-
 
     - name: Run linter
       run: make vet
@@ -68,34 +59,25 @@ jobs:
       if: matrix.image == 'quay.io/centos/centos:stream'
 
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v7
       with:
         # fetching all tags is required for the Makefile to compute the right version
         fetch-depth: 0
 
     - name: Set up Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v7
       with:
-        go-version: "1.25"
+        go-version-file: go.mod
+        cache-dependency-path: go.sum
 
     - name: Set up QEMU dependency
-      uses: docker/setup-qemu-action@v1
+      uses: docker/setup-qemu-action@v4
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
+      uses: docker/setup-buildx-action@v4
 
     - name: Setup dependencies
       run: sudo apt update && sudo apt install -y util-linux udev parted e2fsprogs mount tar extlinux qemu-utils qemu-system
-
-    - name: Share cache with other actions
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/go/pkg/mod
-          /tmp/.buildx-cache
-        key: ${{ runner.os }}-tests-${{ github.sha }}
-        restore-keys: |
-          ${{ runner.os }}-tests-
 
     - name: Run tests
       run: git --no-pager diff --exit-code HEAD~1 HEAD **/**.go templates/ || IMAGE=${{ matrix.image }} make test-templates
@@ -121,34 +103,25 @@ jobs:
       uses: linka-cloud/free-disk-space@main
 
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v7
       with:
         # fetching all tags is required for the Makefile to compute the right version
         fetch-depth: 0
 
     - name: Set up Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v7
       with:
-        go-version: "1.25"
+        go-version-file: go.mod
+        cache-dependency-path: go.sum
 
     - name: Set up QEMU dependency
-      uses: docker/setup-qemu-action@v1
+      uses: docker/setup-qemu-action@v4
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
+      uses: docker/setup-buildx-action@v4
 
     - name: Setup dependencies
       run: sudo apt update && sudo apt install -y util-linux udev parted e2fsprogs mount tar extlinux qemu-utils qemu-system ovmf
-
-    - name: Share cache with other actions
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/go/pkg/mod
-          /tmp/.buildx-cache
-        key: ${{ runner.os }}-e2e-tests-${{ github.sha }}
-        restore-keys: |
-          ${{ runner.os }}-tests-
 
     - name: Run end-to-end tests
       run: E2E_IMAGES=${{ matrix.image }} make e2e
@@ -159,25 +132,16 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v7
       with:
         # fetching all tags is required for the Makefile to compute the right version
         fetch-depth: 0
 
     - name: Set up Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v7
       with:
-        go-version: "1.25"
-
-    - name: Share cache with other actions
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/go/pkg/mod
-          /tmp/.buildx-cache
-        key: ${{ runner.os }}-tests-${{ github.sha }}
-        restore-keys: |
-          ${{ runner.os }}-tests-
+        go-version-file: go.mod
+        cache-dependency-path: go.sum
 
     - name: Check if docs are up to date
       run: make docs-up-to-date
@@ -188,31 +152,22 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v7
       with:
         # fetching all tags is required for the Makefile to compute the right version
         fetch-depth: 0
 
     - name: Set up Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v7
       with:
-        go-version: "1.25"
+        go-version-file: go.mod
+        cache-dependency-path: go.sum
 
     - name: Set up QEMU dependency
-      uses: docker/setup-qemu-action@v1
+      uses: docker/setup-qemu-action@v4
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
-
-    - name: Share cache with other actions
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/go/pkg/mod
-          /tmp/.buildx-cache
-        key: ${{ runner.os }}-build-${{ github.sha }}
-        restore-keys: |
-          ${{ runner.os }}-build-
+      uses: docker/setup-buildx-action@v4
 
     - name: Ensure all files were well formatted
       run: make check-fmt
@@ -225,31 +180,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v7
       with:
         # fetching all tags is required for the Makefile to compute the right version
         fetch-depth: 0
 
     - name: Set up Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v7
       with:
-        go-version: "1.25"
+        go-version-file: go.mod
+        cache-dependency-path: go.sum
 
     - name: Set up QEMU dependency
-      uses: docker/setup-qemu-action@v1
+      uses: docker/setup-qemu-action@v4
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
-
-    - name: Share cache with other actions
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/go/pkg/mod
-          /tmp/.buildx-cache
-        key: ${{ runner.os }}-build-image-${{ github.sha }}
-        restore-keys: |
-          ${{ runner.os }}-build-image-
+      uses: docker/setup-buildx-action@v4
 
     - name: Build Docker images
       run: make docker-build

@@ -21,7 +21,7 @@ VERSION = $(shell git describe --tags --exact-match 2> /dev/null || echo "`git d
 show-version:
 	@echo $(VERSION)
 
-GORELEASER_VERSION := v1.10.1
+GORELEASER_VERSION := v2.18.3
 GORELEASER_URL := https://github.com/goreleaser/goreleaser/releases/download/$(GORELEASER_VERSION)/goreleaser_Linux_x86_64.tar.gz
 
 BIN := $(PWD)/bin
@@ -95,19 +95,19 @@ install: docker-build
 
 .PHONY: build-snapshot
 build-snapshot: bin
-	@VERSION=$(VERSION) IMAGE=$(DOCKER_IMAGE) goreleaser build --snapshot --rm-dist --parallelism 8
+	@VERSION=$(VERSION) IMAGE=$(DOCKER_IMAGE) goreleaser build --snapshot --clean --parallelism 8
 
 .PHONY: release-snapshot
 release-snapshot: bin
-	@VERSION=$(VERSION) IMAGE=$(DOCKER_IMAGE) goreleaser release --snapshot --rm-dist --skip-announce --skip-publish --parallelism 8
+	@VERSION=$(VERSION) IMAGE=$(DOCKER_IMAGE) goreleaser release --snapshot --clean --skip=announce,publish --parallelism 8
 
 .PHONY: build
 build: bin
-	@VERSION=$(VERSION) IMAGE=$(DOCKER_IMAGE) goreleaser build --rm-dist --parallelism 8
+	@VERSION=$(VERSION) IMAGE=$(DOCKER_IMAGE) goreleaser build --clean --parallelism 8
 
 .PHONY: release
 release: bin
-	@VERSION=$(VERSION) IMAGE=$(DOCKER_IMAGE) goreleaser release --rm-dist --parallelism 8
+	@VERSION=$(VERSION) IMAGE=$(DOCKER_IMAGE) goreleaser release --clean --parallelism 8
 
 .PHONY: completions
 completions: .build

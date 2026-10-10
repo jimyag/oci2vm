@@ -2,14 +2,22 @@ name: Docs
 on:
   push:
     tags: [ "v*" ]
+permissions:
+  # deploy-docs pushes the site to the gh-pages branch
+  contents: write
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v7
+    - name: Set up Go
+      uses: actions/setup-go@v7
+      with:
+        go-version-file: go.mod
+        cache-dependency-path: go.sum
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
+      uses: docker/setup-buildx-action@v4
     - name: Build and deploy mkdocs site
       run: |
         git config --global user.name "github-actions[bot]"

@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+version: 2
 project_name: oci2vm
 before:
   hooks:
@@ -37,7 +38,7 @@ signs:
 - artifacts: all
   stdin: '{{ .Env.GPG_PASSWORD }}'
 snapshot:
-  name_template: "{{ .Env.VERSION }}"
+  version_template: "{{ .Env.VERSION }}"
 release:
   prerelease: auto
   extra_files:
