@@ -92,7 +92,7 @@ func Qemu(cmd *cobra.Command, args []string) {
 	if _, err := os.Stat(path); err != nil {
 		log.Fatal(err)
 	}
-	var publishedPorts []PublishedPort
+	var publishedPorts []qemu.PublishedPort
 	for _, publish := range publishFlags {
 		p, err := NewPublishedPort(publish)
 		if err != nil {
@@ -111,6 +111,7 @@ func Qemu(cmd *cobra.Command, args []string) {
 		qemu.WithStdout(os.Stdout),
 		qemu.WithStderr(os.Stderr),
 		qemu.WithBios(bios),
+		qemu.WithPublishedPorts(publishedPorts...),
 	}
 	if enableGUI {
 		opts = append(opts, qemu.WithGUI())

@@ -248,16 +248,9 @@ func (l *Disks) Type() string {
 	return "disk"
 }
 
-// PublishedPort is used by some backends to expose a VMs port on the host
-type PublishedPort struct {
-	Guest    uint16
-	Host     uint16
-	Protocol string
-}
-
 // NewPublishedPort parses a string of the form <host>:<guest>[/<tcp|udp>] and returns a PublishedPort structure
-func NewPublishedPort(publish string) (PublishedPort, error) {
-	p := PublishedPort{}
+func NewPublishedPort(publish string) (qemu.PublishedPort, error) {
+	p := qemu.PublishedPort{}
 	slice := strings.Split(publish, ":")
 
 	if len(slice) < 2 {
