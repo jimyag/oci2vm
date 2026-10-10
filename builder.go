@@ -130,11 +130,21 @@ func NewBuilder(ctx context.Context, workdir, imgTag, disk string, size uint64, 
 		f = "vpc"
 	}
 
+	if size == 0 {
+		size = 10 * uint64(datasize.GB)
+	}
+	if splitBoot && bootSize == 0 {
+		measuredSize, err := inspectBootSize(ctx, imgTag)
+		if err != nil {
+			return nil, err
+		}
+		bootSize = measuredSize
+	}
 	if splitBoot && bootSize < 50 {
 		return nil, fmt.Errorf("boot partition size must be at least 50MiB")
 	}
 
-	if splitBoot && bootSize >= size {
+	if splitBoot && bootSize >= size/(1024*1024) {
 		return nil, fmt.Errorf("boot partition size must be less than the disk size")
 	}
 
@@ -173,9 +183,6 @@ func NewBuilder(ctx context.Context, workdir, imgTag, disk string, size uint64, 
 		return nil, err
 	}
 
-	if size == 0 {
-		size = 10 * uint64(datasize.GB)
-	}
 	if disk == "" {
 		disk = "disk0"
 	}

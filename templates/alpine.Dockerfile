@@ -1,8 +1,28 @@
 # Modifications copyright 2026 jimyag. See the git history for details.
 
+{{- if .BootstrapImage }}
+FROM {{ .BootstrapImage }} AS packages
+RUN apk add --no-cache apk-tools-static
+FROM {{ .Image }} AS original
+FROM original AS rootfs
+{{ else }}
 FROM {{ .Image }} AS rootfs
+{{ end }}
 
 USER root
+
+{{- if .BootstrapImage }}
+COPY --from=packages /sbin/apk.static /tmp/oci2vm-apk
+COPY --from=packages /etc/apk/ /etc/apk/
+COPY --from=original /etc/ /etc/
+RUN /tmp/oci2vm-apk fix --no-cache --upgrade apk-tools && apk --version && rm /tmp/oci2vm-apk
+{{ end }}
+
+# BuildKit cannot execute kmod with CAP_SYS_MODULE; depmod needs no capability.
+RUN if command -v getcap >/dev/null 2>&1 && command -v setcap >/dev/null 2>&1 && command -v kmod >/dev/null 2>&1; then \
+    kmod="$(command -v kmod)" && caps="$(getcap "$kmod")" && \
+    if echo "$caps" | grep -q cap_sys_module; then setcap -r "$kmod"; fi; \
+  fi
 
 RUN apk add --no-cache \
       util-linux \

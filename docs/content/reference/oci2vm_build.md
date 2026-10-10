@@ -12,7 +12,7 @@ oci2vm build [context directory] [flags]
       --add-host strings           Add a custom host-to-IP mapping (host:ip) to the /etc/hosts file in the generated image
       --append-to-cmdline string   Extra kernel cmdline arguments to append to the generated one
       --boot-fs string             Filesystem to use for the boot partition, ext4 or fat32
-      --boot-size uint             Size of the boot partition in MB (default 100)
+      --boot-size uint             Boot partition size in MiB, 0 automatically sizes it from /boot
       --bootloader string          Bootloader to use: syslinux, grub, grub-bios, grub-efi, defaults to syslinux on amd64 and grub-efi on arm64
       --build-arg stringArray      Set build-time variables
       --dns strings                DNS servers to set in the generated image, defaults to the ones provided by DHCP

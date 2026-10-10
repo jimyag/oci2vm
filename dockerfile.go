@@ -16,13 +16,18 @@
 package oci2vm
 
 import (
+	"context"
 	_ "embed"
 	"fmt"
 	"io"
+	"regexp"
 	"strconv"
+	"strings"
 	"text/template"
 
 	"github.com/sirupsen/logrus"
+
+	"github.com/jimyag/oci2vm/pkg/docker"
 )
 
 //go:embed templates/ubuntu.Dockerfile
@@ -69,11 +74,89 @@ type Dockerfile struct {
 	Luks           bool
 	GrubBIOS       bool
 	GrubEFI        bool
+	BootstrapImage string
 	tmpl           *template.Template
+}
+
+// preparePackageManager restores tools removed from otherwise supported images.
+func (d *Dockerfile) preparePackageManager(ctx context.Context) error {
+	var check string
+	switch d.Release.ID {
+	case ReleaseUbuntu, ReleaseDebian, ReleaseKali:
+		check = "command -v apt-get"
+	case ReleaseCentOS, ReleaseRocky, ReleaseAlmaLinux:
+		check = "{ command -v yum || command -v dnf; }"
+	case ReleaseAlpine:
+		check = "command -v apk"
+	default:
+		return nil
+	}
+	out, _, err := docker.CmdOut(ctx, "run", "--rm", "--user", "0", "--entrypoint", "/bin/sh", d.Image,
+		"-c", "if "+check+" >/dev/null 2>&1; then echo present; else echo missing; fi")
+	if err != nil {
+		return fmt.Errorf("inspect package manager in %s: %w", d.Image, err)
+	}
+	if strings.TrimSpace(out) == "present" {
+		return nil
+	}
+	if strings.TrimSpace(out) != "missing" {
+		return fmt.Errorf("unexpected package manager inspection result: %q", out)
+	}
+	d.BootstrapImage, err = packageManagerBootstrapImage(d.Release)
+	if err != nil {
+		return err
+	}
+	logrus.Infof("restoring package manager from %s", d.BootstrapImage)
+	return nil
+}
+
+var releaseVersion = regexp.MustCompile(`^[0-9]+(?:\.[0-9]+)*$`)
+
+func packageManagerBootstrapImage(release OSRelease) (string, error) {
+	if release.ID == ReleaseKali {
+		if release.VersionCodeName == "kali-rolling" {
+			return "kalilinux/kali-rolling:latest", nil
+		}
+		return "", fmt.Errorf("package manager restoration only supports Kali rolling, got %q", release.VersionCodeName)
+	}
+	if !releaseVersion.MatchString(release.VersionID) {
+		return "", fmt.Errorf("invalid distribution version for package manager restoration: %q", release.VersionID)
+	}
+	major, _, _ := strings.Cut(release.VersionID, ".")
+	switch release.ID {
+	case ReleaseUbuntu:
+		if strings.Count(release.VersionID, ".") == 1 {
+			return "ubuntu:" + release.VersionID, nil
+		}
+	case ReleaseDebian:
+		return "debian:" + major, nil
+	case ReleaseAlpine:
+		parts := strings.Split(release.VersionID, ".")
+		if len(parts) >= 2 {
+			return "alpine:" + parts[0] + "." + parts[1], nil
+		}
+	case ReleaseCentOS:
+		if strings.Contains(release.Name, "Stream") {
+			return "quay.io/centos/centos:stream" + major, nil
+		}
+		if major == "7" || major == "8" {
+			return "centos:" + major, nil
+		}
+	case ReleaseRocky:
+		return "rockylinux:" + major, nil
+	case ReleaseAlmaLinux:
+		return "almalinux:" + major, nil
+	}
+	return "", fmt.Errorf("cannot restore package manager for %s %s", release.ID, release.VersionID)
 }
 
 func (d Dockerfile) Grub() bool {
 	return d.GrubBIOS || d.GrubEFI
+}
+
+func (d Dockerfile) ReleaseMajor() string {
+	major, _, _ := strings.Cut(d.Release.VersionID, ".")
+	return major
 }
 
 func (d Dockerfile) Render(w io.Writer) error {

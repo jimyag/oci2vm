@@ -98,6 +98,29 @@ oci2vm convert IMAGE -o disk.qcow2
 
 镜像必须基于下文“支持的发行版”里列出的发行版，并且带有 `cat` 和 `/etc/os-release`。distroless 和 scratch 镜像无法转换。
 
+包管理器被删除时，oci2vm 会从相同发行版、相同版本的基础镜像恢复：
+
+| 发行版 | 恢复内容 |
+| --- | --- |
+| Ubuntu、Debian、Kali rolling | APT 和该版本使用的验签工具（`gpgv` 或 `sqv`）；镜像仍需保留 `dpkg`、包数据库和依赖 |
+| Alpine | 用静态 APK 恢复相同发行版当前的 `apk-tools` 包；镜像仍需保留包数据库 |
+| CentOS 7 | YUM 及其依赖 |
+| CentOS 8 / Stream、Rocky Linux、AlmaLinux | DNF 及其依赖；已有 DNF、只缺 `yum` 命令时直接复用 DNF |
+
+使用归档仓库的 Debian 和 CentOS 版本，恢复包管理器时也会使用归档仓库。RPM 系保留原镜像的
+`/etc` 文件，并优先使用恢复的 RPM 动态库。镜像提供 `getcap` 和 `setcap` 时，各发行版模板会移除
+导致 BuildKit 无法执行 `depmod` 的 `kmod` 文件 `CAP_SYS_MODULE`。这些步骤会修改生成镜像里的系统工具和库，原 Docker 镜像不变。
+例如，以下镜像可以直接转换，无需准备 Dockerfile：
+
+```sh
+oci2vm convert kubeovn/kube-ovn:v1.17.0 --platform linux/arm64 -s 8G -o kube-ovn.qcow2
+oci2vm convert quay.io/kubevirt/virt-handler:v1.9.0 --platform linux/arm64 -s 8G -o virt-handler.qcow2
+oci2vm convert kindest/node:v1.35.1 --platform linux/arm64 -s 8G -o kind-node.qcow2
+```
+
+恢复包管理器不改变引导程序的支持范围：CentOS 7/8、Rocky 8、AlmaLinux 8 仍需使用 amd64 的 BIOS 引导；
+这些发行版的 GRUB EFI 引导要求版本为 9 或更新。
+
 ## 从 Dockerfile 构建
 
 ```bash
@@ -161,7 +184,7 @@ oci2vm build -f Dockerfile --build-arg VERSION=1.0 -o disk.qcow2 .
 | `-s 10G` | 磁盘大小，默认 `10G`；开机时 cloud-init 会把根文件系统扩展到这个大小 |
 | `-p PASSWORD` | root 密码；更推荐通过 cloud-init 配置 SSH 密钥 |
 | `--bootloader` | `syslinux`（amd64 默认）、`grub-bios`、`grub-efi`（arm64 只能用它），以及同时支持 BIOS 和 UEFI 的 `grub` |
-| `--split-boot`、`--boot-fs`、`--boot-size` | 独立的启动分区，ext4 或 fat32，默认 `100` MB |
+| `--split-boot`、`--boot-fs`、`--boot-size` | 独立的启动分区，ext4 或 fat32；默认 `0` 按 `/boot` 内容自动分配，至少 128 MiB。非零值以 MiB 为单位，覆盖自动分配 |
 | `--luks-password` | 用 LUKS 加密根分区 |
 | `--append-to-cmdline` | 追加内核命令行参数 |
 | `--force` | 覆盖已存在的输出磁盘 |

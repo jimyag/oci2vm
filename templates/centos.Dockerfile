@@ -1,8 +1,41 @@
 # Modifications copyright 2026 jimyag. See the git history for details.
 
+{{- if .BootstrapImage }}
+FROM {{ .BootstrapImage }} AS packages
+{{- if and (eq .Release.ID "centos") (le (atoi .ReleaseMajor) 8) }}
+RUN sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* && \
+    sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+{{- end }}
+{{- if eq .ReleaseMajor "7" }}
+RUN yum --installroot=/bootstrap --releasever=7 -y install yum
+{{ else }}
+RUN dnf --installroot=/bootstrap --releasever={{ .ReleaseMajor }} --setopt=install_weak_deps=False -y install dnf
+{{ end }}
+FROM {{ .Image }} AS original
+FROM original AS rootfs
+{{ else }}
 FROM {{ .Image }} AS rootfs
+{{ end }}
 
 USER root
+
+{{- if .BootstrapImage }}
+COPY --from=packages /bootstrap/usr/ /usr/
+COPY --from=packages /bootstrap/etc/ /etc/
+COPY --from=packages /bootstrap/var/lib/ /var/lib/
+COPY --from=original /etc/ /etc/
+# Prefer restored RPM libraries over Debian libraries bundled by some components.
+RUN { printf '/usr/lib64\n'; cat /etc/ld.so.conf; } > /tmp/oci2vm-ld.conf && \
+    mv /tmp/oci2vm-ld.conf /etc/ld.so.conf && /usr/sbin/ldconfig
+{{ end }}
+
+RUN if ! command -v yum >/dev/null 2>&1; then ln -s dnf /usr/bin/yum; fi
+
+# BuildKit cannot execute kmod with CAP_SYS_MODULE; depmod needs no capability.
+RUN if command -v getcap >/dev/null 2>&1 && command -v setcap >/dev/null 2>&1 && command -v kmod >/dev/null 2>&1; then \
+    kmod="$(command -v kmod)" && caps="$(getcap "$kmod")" && \
+    if echo "$caps" | grep -q cap_sys_module; then setcap -r "$kmod"; fi; \
+  fi
 
 {{ if and (eq .Release.ID "centos") (le (atoi .Release.VersionID) 8) }}
 RUN sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* && \

@@ -1,8 +1,28 @@
 # Modifications copyright 2026 jimyag. See the git history for details.
 
+{{- if .BootstrapImage }}
+FROM {{ .BootstrapImage }} AS packages
+{{- if or (eq .Release.VersionID "9") (eq .Release.VersionID "10") (eq .Release.VersionID "11") }}
+RUN echo "deb http://archive.debian.org/debian {{ .Release.VersionCodeName }} main" > /etc/apt/sources.list && \
+    echo "deb http://archive.debian.org/debian-security {{ .Release.VersionCodeName }}{{ if eq .Release.VersionID "11" }}-security{{ else }}/updates{{ end }} main" >> /etc/apt/sources.list
+{{- end }}
+RUN mkdir /packages && cd /packages && apt-get update && apt-get download apt && \
+    if command -v gpgv >/dev/null 2>&1; then apt-get download gpgv; else apt-get download sqv; fi
+{{ end }}
 FROM {{ .Image }} AS rootfs
 
 USER root
+
+{{- if .BootstrapImage }}
+COPY --from=packages /packages/ /tmp/oci2vm-packages/
+RUN dpkg -i /tmp/oci2vm-packages/*.deb && rm -r /tmp/oci2vm-packages
+{{ end }}
+
+# BuildKit cannot execute kmod with CAP_SYS_MODULE; depmod needs no capability.
+RUN if command -v getcap >/dev/null 2>&1 && command -v setcap >/dev/null 2>&1 && command -v kmod >/dev/null 2>&1; then \
+    kmod="$(command -v kmod)" && caps="$(getcap "$kmod")" && \
+    if echo "$caps" | grep -q cap_sys_module; then setcap -r "$kmod"; fi; \
+  fi
 
 {{- if or (eq .Release.VersionID "9") (eq .Release.VersionID "10") (eq .Release.VersionID "11") }}
 # stretch, buster and bullseye packages are only available from archive.debian.org

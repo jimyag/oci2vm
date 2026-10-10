@@ -121,7 +121,7 @@ func buildFlags() *pflag.FlagSet {
 	flags.StringVarP(&containerDiskTag, "tag", "t", "", "Container disk Docker image tag")
 	flags.BoolVar(&push, "push", false, "Push the container disk image to the registry")
 	flags.BoolVar(&splitBoot, "split-boot", false, "Split the boot partition from the root partition")
-	flags.Uint64Var(&bootSize, "boot-size", 100, "Size of the boot partition in MB")
+	flags.Uint64Var(&bootSize, "boot-size", 0, "Boot partition size in MiB, 0 automatically sizes it from /boot")
 	flags.StringVar(&bootFS, "boot-fs", "", "Filesystem to use for the boot partition, ext4 or fat32")
 	flags.StringVar(&bootloader, "bootloader", "", "Bootloader to use: syslinux, grub, grub-bios, grub-efi, defaults to syslinux on amd64 and grub-efi on arm64")
 	flags.StringVar(&luksPassword, "luks-password", "", "Password to use for the LUKS encrypted root partition. If not set, the root partition will not be encrypted")

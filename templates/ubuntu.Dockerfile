@@ -1,8 +1,23 @@
 # Modifications copyright 2026 jimyag. See the git history for details.
 
+{{- if .BootstrapImage }}
+FROM {{ .BootstrapImage }} AS packages
+RUN mkdir /packages && cd /packages && apt-get update && apt-get download apt gpgv
+{{ end }}
 FROM {{ .Image }} AS rootfs
 
 USER root
+
+{{- if .BootstrapImage }}
+COPY --from=packages /packages/ /tmp/oci2vm-packages/
+RUN dpkg -i /tmp/oci2vm-packages/*.deb && rm -r /tmp/oci2vm-packages
+{{ end }}
+
+# BuildKit cannot execute kmod with CAP_SYS_MODULE; depmod needs no capability.
+RUN if command -v getcap >/dev/null 2>&1 && command -v setcap >/dev/null 2>&1 && command -v kmod >/dev/null 2>&1; then \
+    kmod="$(command -v kmod)" && caps="$(getcap "$kmod")" && \
+    if echo "$caps" | grep -q cap_sys_module; then setcap -r "$kmod"; fi; \
+  fi
 
 # initramfs-tools would use the build host swap as resume device, the virtual
 # machine waiting for it at boot
@@ -76,7 +91,7 @@ RUN for u in systemd-networkd.socket systemd-networkd.service systemd-networkd-w
 # the image network configuration is used instead of the cloud-init one,
 # growpart and resize2fs let cloud-init extend the root filesystem to the disk size,
 # the locale module is skipped: it needs the locales package, missing from container images
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends cloud-init cloud-guest-utils e2fsprogs && \
+RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends cloud-init cloud-guest-utils e2fsprogs lsb-release && \
   printf 'network:\n  config: disabled\n' > /etc/cloud/cloud.cfg.d/99-oci2vm-network.cfg && \
   printf 'locale: false\n' > /etc/cloud/cloud.cfg.d/99-oci2vm-locale.cfg
 

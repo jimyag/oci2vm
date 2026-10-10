@@ -106,6 +106,31 @@ oci2vm convert IMAGE -o disk.qcow2
 The image must be based on a [supported distribution](#supported-distributions), with `cat` and
 `/etc/os-release`: distroless and scratch images cannot be converted.
 
+If the package manager has been removed, oci2vm restores it from a base image of the same
+distribution and release:
+
+| Distribution | Restored tools |
+| --- | --- |
+| Ubuntu, Debian, Kali rolling | APT and the release's signature verifier (`gpgv` or `sqv`); `dpkg`, the package database and dependencies must still be present |
+| Alpine | A static APK bootstraps the current `apk-tools` package for the same release; the package database must still be present |
+| CentOS 7 | YUM and its dependencies |
+| CentOS 8 / Stream, Rocky Linux, AlmaLinux | DNF and its dependencies; existing DNF is reused if only the `yum` command is missing |
+
+Debian and CentOS releases using archived repositories also use them during restoration.
+RPM-based images retain the source `/etc` files and give restored RPM libraries precedence.
+The templates remove `kmod`'s `CAP_SYS_MODULE` file capability when the image provides `getcap`
+and `setcap`, so BuildKit can run `depmod`. These steps modify system tools and libraries in the generated image; the source
+Docker image is not changed. For example, these images can be converted without a preparation Dockerfile:
+
+```sh
+oci2vm convert kubeovn/kube-ovn:v1.17.0 --platform linux/arm64 -s 8G -o kube-ovn.qcow2
+oci2vm convert quay.io/kubevirt/virt-handler:v1.9.0 --platform linux/arm64 -s 8G -o virt-handler.qcow2
+oci2vm convert kindest/node:v1.35.1 --platform linux/arm64 -s 8G -o kind-node.qcow2
+```
+
+Restoring the package manager does not change bootloader support: CentOS 7/8, Rocky 8 and
+AlmaLinux 8 still require BIOS boot on amd64; GRUB EFI requires version 9 or later for these distributions.
+
 ## Build from a Dockerfile
 
 ```bash
@@ -175,7 +200,7 @@ and gets neither cloud-init nor the OpenSSH server.
 | `-s 10G` | Disk size, `10G` by default; cloud-init extends the root filesystem to it at boot |
 | `-p PASSWORD` | Root password; prefer SSH keys provided by cloud-init |
 | `--bootloader` | `syslinux` (default on amd64), `grub-bios`, `grub-efi` (the only one on arm64), or `grub` for BIOS and UEFI |
-| `--split-boot`, `--boot-fs`, `--boot-size` | Separate boot partition, ext4 or fat32, `100` MB by default |
+| `--split-boot`, `--boot-fs`, `--boot-size` | Separate boot partition, ext4 or fat32; default `0` sizes it from `/boot`, at least 128 MiB. A nonzero size in MiB overrides this |
 | `--luks-password` | Encrypts the root partition with LUKS |
 | `--append-to-cmdline` | Extra kernel command line arguments |
 | `--force` | Overwrites the output disk |
