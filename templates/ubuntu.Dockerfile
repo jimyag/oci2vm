@@ -73,23 +73,19 @@ RUN for u in systemd-networkd.socket systemd-networkd.service systemd-networkd-w
   done
 {{ end }}
 
-{{- if .CloudInit }}
 # the image network configuration is used instead of the cloud-init one,
 # growpart and resize2fs let cloud-init extend the root filesystem to the disk size,
 # the locale module is skipped: it needs the locales package, missing from container images
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends cloud-init cloud-guest-utils e2fsprogs && \
   printf 'network:\n  config: disabled\n' > /etc/cloud/cloud.cfg.d/99-oci2vm-network.cfg && \
   printf 'locale: false\n' > /etc/cloud/cloud.cfg.d/99-oci2vm-locale.cfg
-{{- end }}
 
-{{- if .SSH }}
 # remove the build host keys so that each virtual machine generates its own:
 # ssh-keygen -A must run before the "sshd -t" configuration check
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends openssh-server && \
   rm -f /etc/ssh/ssh_host_* && \
   mkdir -p /etc/systemd/system/ssh.service.d && \
   printf '[Service]\nExecStartPre=\nExecStartPre=/usr/bin/ssh-keygen -A\nExecStartPre=/usr/sbin/sshd -t\n' > /etc/systemd/system/ssh.service.d/oci2vm-host-keys.conf
-{{- end }}
 
 {{- if .Luks }}
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends cryptsetup-initramfs && \

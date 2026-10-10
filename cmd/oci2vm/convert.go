@@ -96,9 +96,6 @@ var (
 				oci2vm.WithDNS(dns),
 				oci2vm.WithDNSSearch(dnsSearch),
 				oci2vm.WithExtraHosts(extraHosts),
-				oci2vm.WithEntrypointService(entrypointService),
-				oci2vm.WithCloudInit(cloudInit),
-				oci2vm.WithSSH(ssh),
 			); err != nil {
 				return err
 			}

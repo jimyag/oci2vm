@@ -69,21 +69,58 @@ exec 'tail' '-f' '/dev/null'
 }
 
 // The run script must give the process exactly the image arguments and
-// environment, whatever shell syntax they contain.
+// environment, whatever shell syntax they contain, and skip the variable
+// names a shell cannot export.
 func TestDockerImageRunScriptKeepsArguments(t *testing.T) {
 	args := []string{"it's", `"$HOME"`, "$(id)", "100%", "a\nb", "", "`uname`"}
 	c := DockerImageConfig{
-		Env:        []string{`GREETING=it's "$HOME"`},
+		Env:        []string{`GREETING=it's "$HOME"`, "my-var=1"},
 		WorkingDir: t.TempDir(),
 		Entrypoint: []string{"/bin/sh", "-c", `printf '%s|' "$GREETING" "$PWD" "$@"`, "sh"},
 		Cmd:        args,
 	}
-	var script bytes.Buffer
+	var script, stderr bytes.Buffer
 	require.NoError(t, DockerImage{DockerImageConfig: c}.AsRunScript(&script))
-	out, err := osexec.Command("/bin/sh", "-c", script.String()).Output()
+	cmd := osexec.Command("/bin/sh", "-c", script.String())
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
 	require.NoError(t, err)
+	assert.Empty(t, stderr.String())
 	want := strings.Join(append([]string{`it's "$HOME"`, c.WorkingDir}, args...), "|") + "|"
 	assert.Equal(t, want, string(out))
+}
+
+// The profile must give login shells the image environment, whatever shell
+// syntax the values contain, without replacing the login session variables
+// nor failing on names a shell cannot export.
+func TestImageEnvProfile(t *testing.T) {
+	env := []string{`GREETING=it's "$HOME" 100%`, "PATH=/opt/app/bin:/usr/bin:/bin", "HOME=/srv/www", "TERM=xterm-mono", "my-var=1"}
+	cmd := osexec.Command("/bin/sh", "-c", imageEnvProfile(env)+`printf '%s|' "$GREETING" "$PATH" "$HOME" "$TERM"`)
+	cmd.Env = []string{"HOME=/root", "TERM=vt100"}
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	require.NoError(t, err)
+	assert.Empty(t, stderr.String())
+	assert.Equal(t, `it's "$HOME" 100%|/opt/app/bin:/usr/bin:/bin|/root|vt100|`, string(out))
+}
+
+// Distribution and language images only start a shell or an interpreter: no
+// service to install. Application images do run one.
+func TestDockerImageConfigRunsInteractive(t *testing.T) {
+	for _, c := range []struct {
+		config DockerImageConfig
+		want   bool
+	}{
+		{DockerImageConfig{Cmd: []string{"/bin/bash"}}, true},
+		{DockerImageConfig{Entrypoint: []string{"docker-entrypoint.sh"}, Cmd: []string{"node"}}, true},
+		{DockerImageConfig{Entrypoint: []string{"/bin/sh"}}, true},
+		{DockerImageConfig{Cmd: []string{"python3", "app.py"}}, false},
+		{DockerImageConfig{Entrypoint: []string{"/docker-entrypoint.sh"}, Cmd: []string{"nginx", "-g", "daemon off;"}}, false},
+		{DockerImageConfig{Cmd: []string{"httpd-foreground"}}, false},
+	} {
+		assert.Equal(t, c.want, c.config.runsInteractive(), "%+v", c.config)
+	}
 }
 
 func TestImageFlatten(t *testing.T) {

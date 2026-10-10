@@ -95,9 +95,11 @@ type builder struct {
 
 	// entrypoint, when set, is run as a service at boot
 	entrypoint *DockerImageConfig
+	// imageEnv is exported to login shells
+	imageEnv []string
 }
 
-func NewBuilder(ctx context.Context, workdir, imgTag, disk string, size uint64, osRelease OSRelease, format string, cmdLineExtra string, splitBoot bool, bootFS BootFS, bootSize uint64, luksPassword string, bootLoader string, platform, hostname string, dns, dnsSearch []string, extraHosts map[string]string, entrypoint *DockerImageConfig) (Builder, error) {
+func NewBuilder(ctx context.Context, workdir, imgTag, disk string, size uint64, osRelease OSRelease, format string, cmdLineExtra string, splitBoot bool, bootFS BootFS, bootSize uint64, luksPassword string, bootLoader string, platform, hostname string, dns, dnsSearch []string, extraHosts map[string]string, entrypoint *DockerImageConfig, imageEnv []string) (Builder, error) {
 	var arch string
 	switch platform {
 	case "linux/amd64":
@@ -219,6 +221,7 @@ func NewBuilder(ctx context.Context, workdir, imgTag, disk string, size uint64, 
 		dnsSearch:    dnsSearch,
 		hosts:        hosts,
 		entrypoint:   entrypoint,
+		imageEnv:     imageEnv,
 	}
 	if err := b.checkDependencies(); err != nil {
 		return nil, err
@@ -457,6 +460,9 @@ func (b *builder) setupRootFS(ctx context.Context) (err error) {
 	if err := b.setupEntrypointService(); err != nil {
 		return err
 	}
+	if err := b.setupImageEnv(); err != nil {
+		return err
+	}
 
 	switch b.osRelease.ID {
 	case ReleaseAlpine:
@@ -595,6 +601,16 @@ func (b *builder) setupEntrypointService() error {
 		return err
 	}
 	return b.chSymlink(path, "/etc/systemd/system/multi-user.target.wants/"+entrypointName+".service")
+}
+
+// setupImageEnv exports the image Env to login shells, like "docker exec"
+// gets it. Services do not read it: the entrypoint service script sets it.
+func (b *builder) setupImageEnv() error {
+	if len(b.imageEnv) == 0 {
+		return nil
+	}
+	logrus.Infof("exporting the image environment to login shells in %s", imageEnvScript)
+	return b.chWriteFileAll(imageEnvScript, imageEnvProfile(b.imageEnv), perm)
 }
 
 // chWriteFileAll is chWriteFile creating the missing parent directories.

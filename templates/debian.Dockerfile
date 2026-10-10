@@ -85,16 +85,18 @@ RUN for u in systemd-networkd.socket systemd-networkd.service systemd-networkd-w
     done
 {{ end }}
 
-{{- if .CloudInit }}
 # the image network configuration is used instead of the cloud-init one,
 # growpart and resize2fs let cloud-init extend the root filesystem to the disk size,
 # the locale module is skipped: it needs the locales package, missing from container images
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends cloud-init cloud-guest-utils e2fsprogs && \
     printf 'network:\n  config: disabled\n' > /etc/cloud/cloud.cfg.d/99-oci2vm-network.cfg && \
     printf 'locale: false\n' > /etc/cloud/cloud.cfg.d/99-oci2vm-locale.cfg
+{{- if eq .Release.VersionID "9" }}
+# the stretch cloud-init generator does not run ds-identify: with no NoCloud or
+# ConfigDrive disk, cloud-init would wait for the cloud metadata services
+RUN printf 'datasource_list: [NoCloud, ConfigDrive, None]\n' > /etc/cloud/cloud.cfg.d/99-oci2vm-datasource.cfg
 {{- end }}
 
-{{- if .SSH }}
 # remove the build host keys so that each virtual machine generates its own:
 # ssh-keygen -A must run before the "sshd -t" configuration check.
 # Kali does not enable the network services it installs.
@@ -103,7 +105,6 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends op
     mkdir -p /etc/systemd/system/ssh.service.d && \
     printf '[Service]\nExecStartPre=\nExecStartPre=/usr/bin/ssh-keygen -A\nExecStartPre=/usr/sbin/sshd -t\n' > /etc/systemd/system/ssh.service.d/oci2vm-host-keys.conf && \
     systemctl enable ssh.service
-{{- end }}
 
 
 {{- if .Luks }}

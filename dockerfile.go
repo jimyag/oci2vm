@@ -69,8 +69,6 @@ type Dockerfile struct {
 	Luks           bool
 	GrubBIOS       bool
 	GrubEFI        bool
-	CloudInit      bool
-	SSH            bool
 	tmpl           *template.Template
 }
 

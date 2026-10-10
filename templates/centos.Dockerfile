@@ -45,21 +45,23 @@ RUN dracut --no-hostonly --regenerate-all --force
 
 {{ if .Password }}RUN echo "root:{{ .Password }}" | chpasswd {{ end }}
 
-{{- if .CloudInit }}
 # the image network configuration is used instead of the cloud-init one,
 # growpart lets cloud-init extend the root partition to the disk size,
 # hostname and service, missing from some images, are used to set the
 # instance hostname and to restart sshd
 RUN yum install -y cloud-init cloud-utils-growpart hostname /usr/sbin/service && \
     printf 'network:\n  config: disabled\n' > /etc/cloud/cloud.cfg.d/99-oci2vm-network.cfg
+{{- if eq .Release.VersionID "7" }}
+# the CentOS 7 cloud-init generator looks for ds-identify in /usr/libexec, where
+# the package does not install it: with no NoCloud or ConfigDrive disk,
+# cloud-init would wait for the cloud metadata services
+RUN printf 'datasource_list: [NoCloud, ConfigDrive, None]\n' > /etc/cloud/cloud.cfg.d/99-oci2vm-datasource.cfg
 {{- end }}
 
-{{- if .SSH }}
 # sshd-keygen generates the missing host keys when sshd starts
 RUN yum install -y openssh-server && \
     rm -f /etc/ssh/ssh_host_* && \
     systemctl enable sshd
-{{- end }}
 
 {{- if .Grub }}
 RUN set -e; \

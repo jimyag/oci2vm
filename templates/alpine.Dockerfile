@@ -32,20 +32,19 @@ iface eth0 inet dhcp\n\
 ' > /etc/network/interfaces
 {{ end }}
 
-{{- if .CloudInit }}
 # the image network configuration is used instead of the cloud-init one,
-# growpart and resize2fs let cloud-init extend the root filesystem to the disk size
+# growpart and resize2fs let cloud-init extend the root filesystem to the disk size.
+# OpenRC runs cloud-init without ds-identify: with no NoCloud or ConfigDrive disk,
+# it would wait for the Ec2 and OpenStack metadata services for more than 2 minutes.
 RUN apk add --no-cache cloud-init cloud-utils-growpart e2fsprogs-extra && \
     setup-cloud-init && \
-    printf 'network:\n  config: disabled\n' > /etc/cloud/cloud.cfg.d/99-oci2vm-network.cfg
-{{- end }}
+    printf 'network:\n  config: disabled\n' > /etc/cloud/cloud.cfg.d/99-oci2vm-network.cfg && \
+    printf 'datasource_list: [NoCloud, ConfigDrive, None]\n' > /etc/cloud/cloud.cfg.d/99-oci2vm-datasource.cfg
 
-{{- if .SSH }}
 # the sshd service generates the missing host keys when it starts
 RUN apk add --no-cache openssh-server && \
     rm -f /etc/ssh/ssh_host_* && \
     rc-update add sshd default
-{{- end }}
 
 {{ if .Luks }}
 RUN apk add --no-cache cryptsetup && \

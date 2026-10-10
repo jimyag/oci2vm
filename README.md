@@ -5,7 +5,7 @@
 *Build virtual machine images from container images*
 
 oci2vm is a fork of [d2vm](https://github.com/linka-cloud/d2vm) by Linka Cloud, licensed under the
-[Apache License 2.0](LICENCE). It was imported from d2vm commit `7184ff1`, then added the options described in
+[Apache License 2.0](LICENCE). It was imported from d2vm commit `7184ff1`, then added what is described in
 [Running the image entrypoint, cloud-init and SSH](#running-the-image-entrypoint-cloud-init-and-ssh)
 and fixes for older distribution releases. The git history records the changes, and [NOTICE](NOTICE) the attributions.
 
@@ -151,10 +151,8 @@ Flags:
       --boot-fs string             Filesystem to use for the boot partition, ext4 or fat32
       --boot-size uint             Size of the boot partition in MB (default 100)
       --bootloader string          Bootloader to use: syslinux, grub, grub-bios, grub-efi, defaults to syslinux on amd64 and grub-efi on arm64
-      --cloud-init                 Install cloud-init, its network configuration being disabled in favor of the image one
       --dns strings                DNS servers to set in the generated image, defaults to the ones provided by DHCP
       --dns-search strings         DNS search domains to set in the generated image
-      --entrypoint-service         Run the image entrypoint and command as the oci2vm-entrypoint service at boot, with the image environment, working directory and user
       --force                      Override output qcow2 image
   -h, --help                       help for convert
       --hostname string            Hostname to set in the generated image (default "localhost")
@@ -169,7 +167,6 @@ Flags:
       --raw                        Just convert the container to virtual machine image without installing anything more
   -s, --size string                The output image size (default "10G")
       --split-boot                 Split the boot partition from the root partition
-      --ssh                        Install and enable an OpenSSH server, the host keys are generated at first boot
   -t, --tag string                 Container disk Docker image tag
 
 Global Flags:
@@ -316,10 +313,8 @@ Flags:
       --boot-fs string             Filesystem to use for the boot partition, ext4 or fat32
       --boot-size uint             Size of the boot partition in MB (default 100)
       --bootloader string          Bootloader to use: syslinux, grub, grub-bios, grub-efi, defaults to syslinux on amd64 and grub-efi on arm64
-      --cloud-init                 Install cloud-init, its network configuration being disabled in favor of the image one
       --dns strings                DNS servers to set in the generated image, defaults to the ones provided by DHCP
       --dns-search strings         DNS search domains to set in the generated image
-      --entrypoint-service         Run the image entrypoint and command as the oci2vm-entrypoint service at boot, with the image environment, working directory and user
       --build-arg stringArray      Set build-time variables
   -f, --file string                Name of the Dockerfile
       --force                      Override output qcow2 image
@@ -336,7 +331,6 @@ Flags:
       --raw                        Just convert the container to virtual machine image without installing anything more
   -s, --size string                The output image size (default "10G")
       --split-boot                 Split the boot partition from the root partition
-      --ssh                        Install and enable an OpenSSH server, the host keys are generated at first boot
   -t, --tag string                 Container disk Docker image tag
 
 Global Flags:
@@ -357,23 +351,31 @@ sudo oci2vm build -p MyP4Ssw0rd -f ubuntu.Dockerfile -o ubuntu.vdi .
 
 ### Running the image entrypoint, cloud-init and SSH
 
-By default, the virtual machine only boots the distribution: the image `ENTRYPOINT` and `CMD` are not run.
+The virtual machine runs the image like a container would, and can be set up by cloud-init and reached by SSH:
 
-- `--entrypoint-service` runs them at boot as the `oci2vm-entrypoint` service (a systemd unit, or an OpenRC service on Alpine),
+- The image `ENTRYPOINT` and `CMD` run at boot as the `oci2vm-entrypoint` service (a systemd unit, or an OpenRC service on Alpine),
   with the image `ENV`, `WORKDIR` and `USER`. The service runs the generated `/usr/local/bin/oci2vm-entrypoint` script
-  and restarts it when it fails.
-- `--cloud-init` installs cloud-init, so that users, SSH keys and user data can be provided at boot,
+  and restarts it when it fails. No service is installed when the image only starts an interactive program,
+  as the distribution and language images do, e.g. `/bin/bash`, `python3` or `node`.
+- The image `ENV` is exported to login shells (SSH sessions, console logins, `su -`) by `/etc/profile.d/oci2vm-env.sh`,
+  so that the commands typed in the virtual machine get the image `PATH` and variables. `HOME`, `HOSTNAME`, `LOGNAME`, `SHELL`,
+  `TERM` and `USER` keep the login session values. The other services do not read it, nor the commands run without
+  a login shell, e.g. `ssh host cmd`, except on the RHEL-like distributions (CentOS, Rocky Linux, AlmaLinux),
+  whose `/etc/bashrc` reads `/etc/profile.d`.
+- cloud-init is installed, so that users, SSH keys and user data can be provided at boot,
   e.g. by KubeVirt `cloudInitNoCloud` volumes. The network stays configured by the image (DHCP on `eth0`):
   the cloud-init network configuration is disabled in `/etc/cloud/cloud.cfg.d/99-oci2vm-network.cfg`.
   `growpart` and `resize2fs` are installed, so that cloud-init extends the root filesystem to the disk size.
   On Debian, Kali and Ubuntu, the cloud-init `locale` module is disabled in `/etc/cloud/cloud.cfg.d/99-oci2vm-locale.cfg`:
   it needs the `locales` package, which container images do not ship.
-- `--ssh` installs and enables an OpenSSH server. The host keys generated at build time are removed:
+  When the virtual machine has no datasource, ds-identify disables cloud-init at boot. Alpine, Debian 9 and CentOS 7
+  do not run ds-identify: their cloud-init only looks for the NoCloud and ConfigDrive datasources
+  (`/etc/cloud/cloud.cfg.d/99-oci2vm-datasource.cfg`), instead of waiting minutes for the cloud metadata services.
+- An OpenSSH server is installed and enabled. The host keys generated at build time are removed:
   each virtual machine generates its own at first boot.
 
-```bash
-sudo oci2vm build -f app.Dockerfile -o app.qcow2 --entrypoint-service --cloud-init --ssh .
-```
+The `ENV` variables whose names a shell cannot export, e.g. containing a dash, are skipped.
+With `--raw`, which installs no package, neither cloud-init nor the OpenSSH server are added.
 
 Unless `--dns` or `--dns-search` are set, the name servers are the ones provided by DHCP,
 through systemd-resolved when the image enables it (netplan), or written to `/etc/resolv.conf` by the DHCP client.
@@ -400,7 +402,7 @@ You can find the Dockerfiles used to install the Kernel in the [templates](templ
 ### TODO / Questions:
 
 - [x] Create service from `ENTRYPOINT` `CMD` `WORKDIR` and `ENV` instructions ?
-- [ ] Inject Image `ENV` variables into `.bashrc` or other service environment file ?
+- [x] Inject Image `ENV` variables into `.bashrc` or other service environment file ?
 - [x] Use image layers to create *rootfs* instead of container ?
 
 ### Acknowledgments
