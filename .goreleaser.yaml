@@ -1,4 +1,5 @@
 # Copyright 2022 Linka Cloud  All rights reserved.
+# Modifications copyright 2026 jimyag. See the git history for details.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,18 +12,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-project_name: d2vm
+project_name: oci2vm
 before:
   hooks:
   - go mod tidy
   - go generate ./...
   - make completions
 builds:
-- main: ./cmd/d2vm
+- main: ./cmd/oci2vm
   env:
   - CGO_ENABLED=0
   ldflags:
-  - -s -w -X "go.linka.cloud/d2vm.Image={{.Env.IMAGE}}" -X "go.linka.cloud/d2vm.Version={{.Env.VERSION}}" -X "go.linka.cloud/d2vm.BuildDate={{.CommitDate}}"
+  - -s -w -X "github.com/jimyag/oci2vm.Image={{.Env.IMAGE}}" -X "github.com/jimyag/oci2vm.Version={{.Env.VERSION}}" -X "github.com/jimyag/oci2vm.BuildDate={{.CommitDate}}"
   goos:
   - linux
   - windows
@@ -41,33 +42,14 @@ release:
   prerelease: auto
   extra_files:
   - glob: LICENCE
-  - glob: pgp.pub
+  - glob: NOTICE
 archives:
 - name_template: '{{ .ProjectName }}_{{ .Env.VERSION }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}{{ with .Mips }}_{{ . }}{{ end }}{{ if not (eq .Amd64 "v1") }}{{ .Amd64 }}{{ end }}'
   files:
   - LICENCE
+  - NOTICE
   - README.md
   - completions/*
-brews:
-- name: d2vm
-  tap:
-    owner: linka-cloud
-    name: homebrew-tap
-  folder: Formula
-  homepage: https://github.com/linka-cloud/d2vm
-  description: Build Virtual Machine Image from Dockerfile or Docker image
-  license: Apache License 2.0
-  test: |
-    system "#{bin}/d2vm --version"
-  dependencies:
-  - name: go
-    type: optional
-  - name: git
-  install: |-
-    bin.install "d2vm"
-    bash_completion.install "completions/d2vm.bash" => "d2vm"
-    zsh_completion.install "completions/d2vm.zsh" => "_d2vm"
-    fish_completion.install "completions/d2vm.fish"
 changelog:
   sort: asc
   filters:

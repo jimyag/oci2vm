@@ -18,8 +18,8 @@ RUN apt update && DEBIAN_FRONTEND=noninteractive apt install -y --no-install-rec
 COPY resize /usr/local/bin/
 
 # User setup variables
-ARG USER=d2vm
-ARG PASSWORD=d2vm
+ARG USER=oci2vm
+ARG PASSWORD=oci2vm
 ARG SSH_KEY=https://github.com/${USER}.keys
 
 # Setup user environment
@@ -57,7 +57,7 @@ RUN sudo sed -i "s|ExecStart=.*|ExecStart=-/sbin/agetty --autologin ${USER} --ke
 
 ```
 
-There is no need to configure the network as **d2vm** will generate a *netplan* configuration that use DHCP.
+There is no need to configure the network as **oci2vm** will generate a *netplan* configuration that use DHCP.
 
 **Build**
 
@@ -66,13 +66,13 @@ USER=mygithubuser
 PASSWORD=mysecurepasswordthatIwillneverusebecauseIuseMostlySSHkeys
 OUTPUT=workstation.qcow2
 
-d2vm build -o $OUTPUT --build-arg USER=$USER --build-arg PASSWORD=$PASSWORD --build-arg SSH_KEY=https://github.com/$USER.keys --force -v .
+oci2vm build -o $OUTPUT --build-arg USER=$USER --build-arg PASSWORD=$PASSWORD --build-arg SSH_KEY=https://github.com/$USER.keys --force -v .
 ```
 
 Run it:
 
 ```bash
-d2vm run qemu --mem 4096 --cpus 4 $IMAGE
+oci2vm run qemu --mem 4096 --cpus 4 $IMAGE
 ```
 ... you should be automatically logged in with a **oh-my-zsh** shell
 

@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package d2vm
+package oci2vm
 
 import (
 	"context"
@@ -26,7 +26,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/svenwiltink/sparsecat"
 
-	"go.linka.cloud/d2vm/pkg/docker"
+	"github.com/jimyag/oci2vm/pkg/docker"
 )
 
 func Convert(ctx context.Context, img string, opts ...ConvertOption) error {
@@ -35,7 +35,7 @@ func Convert(ctx context.Context, img string, opts ...ConvertOption) error {
 		opt(o)
 	}
 	imgUUID := uuid.New().String()
-	tmpPath := filepath.Join(os.TempDir(), "d2vm", imgUUID)
+	tmpPath := filepath.Join(os.TempDir(), "oci2vm", imgUUID)
 	if err := os.MkdirAll(tmpPath, os.ModePerm); err != nil {
 		return err
 	}

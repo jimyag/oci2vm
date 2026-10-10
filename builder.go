@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package d2vm
+package oci2vm
 
 import (
 	"bytes"
@@ -31,7 +31,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"go.uber.org/multierr"
 
-	"go.linka.cloud/d2vm/pkg/exec"
+	"github.com/jimyag/oci2vm/pkg/exec"
 )
 
 const (
@@ -203,7 +203,7 @@ func NewBuilder(ctx context.Context, workdir, imgTag, disk string, size uint64, 
 		config:       config,
 		bootloader:   bl,
 		img:          img,
-		diskRaw:      filepath.Join(workdir, disk+".d2vm.raw"),
+		diskRaw:      filepath.Join(workdir, disk+".oci2vm.raw"),
 		diskOut:      filepath.Join(workdir, disk+"."+format),
 		format:       f,
 		size:         size,
@@ -334,7 +334,7 @@ func (b *builder) mountImg(ctx context.Context) error {
 		if err := exec.Run(ctx, "cryptsetup", "luksFormat", "--batch-mode", "--type", "luks2", b.rootPart, f.Name()); err != nil {
 			return err
 		}
-		b.cryptRoot = fmt.Sprintf("d2vm-%s-root", uuid.New().String())
+		b.cryptRoot = fmt.Sprintf("oci2vm-%s-root", uuid.New().String())
 		// cryptsetup open -d $KEY_FILE $ROOT_DEVICE $ROOT_LABEL
 		if err := exec.Run(ctx, "cryptsetup", "open", "--key-file", f.Name(), b.rootPart, b.cryptRoot); err != nil {
 			return err

@@ -51,7 +51,7 @@ RUN dracut --no-hostonly --regenerate-all --force
 # hostname and service, missing from some images, are used to set the
 # instance hostname and to restart sshd
 RUN yum install -y cloud-init cloud-utils-growpart hostname /usr/sbin/service && \
-    printf 'network:\n  config: disabled\n' > /etc/cloud/cloud.cfg.d/99-d2vm-network.cfg
+    printf 'network:\n  config: disabled\n' > /etc/cloud/cloud.cfg.d/99-oci2vm-network.cfg
 {{- end }}
 
 {{- if .SSH }}

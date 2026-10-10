@@ -1,4 +1,5 @@
 // Copyright 2022 Linka Cloud  All rights reserved.
+// Modifications copyright 2026 jimyag. See the git history for details.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package d2vm
+package oci2vm
 
 import (
 	"context"
@@ -23,8 +24,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 
-	"go.linka.cloud/d2vm/pkg/docker"
-	"go.linka.cloud/d2vm/pkg/qemu_img"
+	"github.com/jimyag/oci2vm/pkg/docker"
+	"github.com/jimyag/oci2vm/pkg/qemu_img"
 )
 
 const (
@@ -37,7 +38,7 @@ ADD --chown=%[1]d:%[1]d %[2]s /disk/
 )
 
 func MakeContainerDisk(ctx context.Context, path string, tag string, platform string) error {
-	tmpPath := filepath.Join(os.TempDir(), "d2vm", uuid.New().String())
+	tmpPath := filepath.Join(os.TempDir(), "oci2vm", uuid.New().String())
 	if err := os.MkdirAll(tmpPath, os.ModePerm); err != nil {
 		return err
 	}

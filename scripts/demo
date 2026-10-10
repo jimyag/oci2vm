@@ -41,7 +41,7 @@ PROMPT_TIMEOUT=0
 
 EXEC_WAIT=2
 pei "export PASSWORD=\"Don'tThinkTh4tIReallyUseThisPassword:)\""
-pei "sudo d2vm build -s 10G -o $IMAGE --force --build-arg USER=adphi --build-arg PASSWORD=\$PASSWORD -p \$PASSWORD -v --time=relative examples/full"
+pei "sudo oci2vm build -s 10G -o $IMAGE --force --build-arg USER=adphi --build-arg PASSWORD=\$PASSWORD -p \$PASSWORD -v --time=relative examples/full"
 
 rm examples/full/{demo-magic,inside}
 git checkout examples/ &> /dev/null
@@ -54,7 +54,7 @@ pei "# Now let's run this image"
 wait
 
 EXEC_WAIT=2
-pei "sudo d2vm run qemu --cpus 4 --mem 4096 --networking default $IMAGE"
+pei "sudo oci2vm run qemu --cpus 4 --mem 4096 --networking default $IMAGE"
 
 # demo continues inside the vm is soon as the boot completes
 
@@ -65,7 +65,7 @@ EXEC_WAIT=1
 pei "# Let's try to run it on a cloud provider: Hetzner..."
 
 EXEC_WAIT=2
-pei "sudo -E d2vm run hetzner --rm -v --time=relative -u adphi -i ~/.ssh/id_rsa $IMAGE"
+pei "sudo -E oci2vm run hetzner --rm -v --time=relative -u adphi -i ~/.ssh/id_rsa $IMAGE"
 
 # demo continues inside the vm is soon as the boot completes
 

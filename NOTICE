@@ -1,0 +1,18 @@
+oci2vm
+Copyright 2026 jimyag
+
+oci2vm is licensed under the Apache License, Version 2.0, see the LICENCE
+file.
+
+oci2vm is derived from d2vm (https://github.com/linka-cloud/d2vm),
+developed by Linka Cloud and licensed under the Apache License, Version 2.0.
+It was imported from d2vm commit 7184ff1d93728355fd8c12d75e11ac4b1ef2c6f0,
+and the git history records the changes made since. The original copyright
+notices are kept in the source files, and the changed source files carry a
+"Modifications copyright" notice.
+
+Parts of the run commands, in cmd/oci2vm/run and pkg/qemu, are adapted from
+LinuxKit (https://github.com/linuxkit/linuxkit), licensed under the Apache
+License, Version 2.0, whose NOTICE file reads:
+
+  Copyright 2015-2017 Docker, Inc.

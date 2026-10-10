@@ -1,4 +1,5 @@
 // Copyright 2023 Linka Cloud  All rights reserved.
+// Modifications copyright 2026 jimyag. See the git history for details.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,9 +30,9 @@ import (
 
 	require2 "github.com/stretchr/testify/require"
 
-	"go.linka.cloud/d2vm"
-	"go.linka.cloud/d2vm/pkg/docker"
-	"go.linka.cloud/d2vm/pkg/qemu"
+	"github.com/jimyag/oci2vm"
+	"github.com/jimyag/oci2vm/pkg/docker"
+	"github.com/jimyag/oci2vm/pkg/qemu"
 )
 
 type test struct {
@@ -115,7 +116,7 @@ imgs:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			dir := filepath.Join("/tmp", "d2vm-e2e", tt.name)
+			dir := filepath.Join("/tmp", "oci2vm-e2e", tt.name)
 			require.NoError(os.MkdirAll(dir, os.ModePerm))
 
 			defer os.RemoveAll(dir)
@@ -135,7 +136,7 @@ imgs:
 						require.NoError(os.Remove(out))
 					}
 
-					require.NoError(docker.RunD2VM(ctx, d2vm.Image, d2vm.Version, dir, dir, "convert", append([]string{"-p", "root", "-o", "/out/" + filepath.Base(out), "-v", "--keep-cache", "--boot-size=250", img.name}, tt.args...)...))
+					require.NoError(docker.RunOCI2VM(ctx, oci2vm.Image, oci2vm.Version, dir, dir, "convert", append([]string{"-p", "root", "-o", "/out/" + filepath.Base(out), "-v", "--keep-cache", "--boot-size=250", img.name}, tt.args...)...))
 
 					inr, inw := io.Pipe()
 					defer inr.Close()

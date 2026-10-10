@@ -9,7 +9,7 @@ scratch
 bin/
 dist/
 images
-/d2vm
+/oci2vm
 /examples/build
 /examples/full/demo-magic
 /examples/full/inside
@@ -17,4 +17,4 @@ images
 docs/build
 docs-src
 /completions
-/cmd/d2vm/run/sparsecat-linux-*
+/cmd/oci2vm/run/sparsecat-linux-*

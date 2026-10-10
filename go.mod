@@ -1,4 +1,4 @@
-module go.linka.cloud/d2vm
+module github.com/jimyag/oci2vm
 
 go 1.25
 

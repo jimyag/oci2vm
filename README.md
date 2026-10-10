@@ -1,10 +1,13 @@
-
-# d2vm (Docker to Virtual Machine)
+# oci2vm (OCI image to Virtual Machine)
 
 [![Language: Go](https://img.shields.io/badge/lang-Go-6ad7e5.svg?style=flat-square&logo=go)](https://golang.org/)
-[![Go Reference](https://pkg.go.dev/badge/go.linka.cloud/d2vm.svg)](https://pkg.go.dev/go.linka.cloud/d2vm)
 
-*Build virtual machine image from Docker images*
+*Build virtual machine images from container images*
+
+oci2vm is a fork of [d2vm](https://github.com/linka-cloud/d2vm) by Linka Cloud, licensed under the
+[Apache License 2.0](LICENCE). It was imported from d2vm commit `7184ff1`, then added the options described in
+[Running the image entrypoint, cloud-init and SSH](#running-the-image-entrypoint-cloud-init-and-ssh)
+and fixes for older distribution releases. The git history records the changes, and [NOTICE](NOTICE) the attributions.
 
 The project is heavily inspired by the [article](https://iximiuz.com/en/posts/from-docker-container-to-bootable-linux-disk-image/) and the work done by [iximiuz](https://github.com/iximiuz) on [docker-to-linux](https://github.com/iximiuz/docker-to-linux).
 
@@ -12,13 +15,11 @@ Many thanks to him.
 
 **Status**: *alpha*
 
-[![asciicast](https://asciinema.org/a/520132.svg)](https://asciinema.org/a/520132)
-
 ## Supported Environments:
 
 **Only building Linux Virtual Machine images is supported.**
 
-Starting from v0.1.0, **d2vm** automatically run build and convert commands inside Docker when not running on linux
+**oci2vm** automatically runs build and convert commands inside Docker when not running on linux
 or when running without *root* privileges.
 
 *Note: windows should be working, but is totally untested.*
@@ -69,7 +70,7 @@ Obviously, **Distroless** images are not supported.
 
 #### sudo or root privileges
 
-*sudo* or root privileges are required for `d2vm` to performs operations that require root-level permissions, in particular:
+*sudo* or root privileges are required for `oci2vm` to performs operations that require root-level permissions, in particular:
 
 - mounting disk images and loopback devices requires [elevated privileges](https://linux.die.net/man/2/mount)
 - invoke `docker` commands, which require root-level permissions by default
@@ -79,48 +80,14 @@ Obviously, **Distroless** images are not supported.
 
 ### Install
 
-#### With Docker
-
-*Note: this will only work if both the source context (and Dockerfile) and the output directory are somewhere inside
-the directory where you run the command.*
-
-```bash
-docker pull linkacloud/d2vm:latest
-alias d2vm="docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock --privileged -v \$PWD:/d2vm -w /d2vm linkacloud/d2vm:latest"
-```
-
-```bash
-which d2vm
-
-d2vm: aliased to docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock --privileged -v $PWD:/d2vm -w /d2vm linkacloud/d2vm:latest
-```
-
-#### With Homebrew
-
-```bash
-brew install linka-cloud/tap/d2vm
-```
-
-#### From release
-
-Download the latest release for your platform from the [release page](https://github.com/linka-cloud/d2vm/releases/latest).
-
-Extract the tarball, then move the extracted *d2vm* binary to somewhere in your `$PATH` (`/usr/local/bin` for most users).
-
-```bash
-VERSION=$(git ls-remote --tags https://github.com/linka-cloud/d2vm |cut -d'/' -f 3|tail -n 1)
-OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-ARCH=$([ "$(uname -m)" = "x86_64" ] && echo "amd64" || echo "arm64")
-curl -sL "https://github.com/linka-cloud/d2vm/releases/download/${VERSION}/d2vm_${VERSION}_${OS}_${ARCH}.tar.gz" | tar -xvz d2vm
-sudo mv d2vm /usr/local/bin/
-```
+No release is published yet: oci2vm is built from source.
 
 #### From source
 
 Clone the git repository:
 
 ```bash
-git clone https://github.com/linka-cloud/d2vm && cd d2vm
+git clone https://github.com/jimyag/oci2vm && cd oci2vm
 ```
 
 Install using the *make*, *docker* and the Go tool chain:
@@ -129,41 +96,54 @@ Install using the *make*, *docker* and the Go tool chain:
 make install
 ```
 
-The *d2vm* binary is installed in the `$GOBIN` directory.
+The *oci2vm* binary is installed in the `$GOBIN` directory. `make install` also builds the `ghcr.io/jimyag/oci2vm`
+image, in which the binary runs the build and convert commands when not running on linux or without *root* privileges.
 
 ```bash
-which d2vm
+which oci2vm
 
-/go/bin/d2vm
+/go/bin/oci2vm
+```
+
+#### With Docker
+
+*Note: this will only work if both the source context (and Dockerfile) and the output directory are somewhere inside
+the directory where you run the command.*
+
+Build the image in the git repository, then define an alias running it:
+
+```bash
+make docker-build
+alias oci2vm="docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock --privileged -v \$PWD:/oci2vm -w /oci2vm ghcr.io/jimyag/oci2vm:$(make show-version)"
 ```
 
 ### Generate shell completion
 
-The *d2vm* program supports shell completion for *bash*, *zsh* and *fish*.
+The *oci2vm* program supports shell completion for *bash*, *zsh* and *fish*.
 
 It can be enabled by running the following command:
 
 ```bash
-source <(d2vm completion $(basename $SHELL))
+source <(oci2vm completion $(basename $SHELL))
 ```
 
 Or you can install the completion file in the shell completion directory by following the instructions:
 
 ```bash
-d2vm completion $(basename $SHELL) --help
+oci2vm completion $(basename $SHELL) --help
 ```
 
 
 ### Converting an existing Docker Image to VM image:
 
 ```bash
-d2vm convert --help
+oci2vm convert --help
 ```
 ```
 Convert Docker image to vm image
 
 Usage:
-  d2vm convert [docker image] [flags]
+  oci2vm convert [docker image] [flags]
 
 Flags:
       --append-to-cmdline string   Extra kernel cmdline arguments to append to the generated one
@@ -174,7 +154,7 @@ Flags:
       --cloud-init                 Install cloud-init, its network configuration being disabled in favor of the image one
       --dns strings                DNS servers to set in the generated image, defaults to the ones provided by DHCP
       --dns-search strings         DNS search domains to set in the generated image
-      --entrypoint-service         Run the image entrypoint and command as the d2vm-entrypoint service at boot, with the image environment, working directory and user
+      --entrypoint-service         Run the image entrypoint and command as the oci2vm-entrypoint service at boot, with the image environment, working directory and user
       --force                      Override output qcow2 image
   -h, --help                       help for convert
       --hostname string            Hostname to set in the generated image (default "localhost")
@@ -201,7 +181,7 @@ Global Flags:
 Create an image based on the **ubuntu** official image:
 
 ```bash
-sudo d2vm convert ubuntu -o ubuntu.qcow2 -p MyP4Ssw0rd
+sudo oci2vm convert ubuntu -o ubuntu.qcow2 -p MyP4Ssw0rd
 ```
 ```
 Pulling image ubuntu
@@ -224,7 +204,7 @@ Converting to qcow2
 You can now run your ubuntu image using the created `ubuntu.qcow2` image with **qemu**:
 
 ```bash
-d2vm run qemu ubuntu.qcow2
+oci2vm run qemu ubuntu.qcow2
 ```
 ```
 SeaBIOS (version 1.13.0-1ubuntu1.1)
@@ -321,14 +301,14 @@ Build the vm image:
 The *build* command take most of its flags and arguments from the *docker build* command.
 
 ```bash
-d2vm build --help
+oci2vm build --help
 ```
 
 ```
 Build a vm image from Dockerfile
 
 Usage:
-  d2vm build [context directory] [flags]
+  oci2vm build [context directory] [flags]
 
 Flags:
       --append-to-cmdline string   Extra kernel cmdline arguments to append to the generated one
@@ -339,7 +319,7 @@ Flags:
       --cloud-init                 Install cloud-init, its network configuration being disabled in favor of the image one
       --dns strings                DNS servers to set in the generated image, defaults to the ones provided by DHCP
       --dns-search strings         DNS search domains to set in the generated image
-      --entrypoint-service         Run the image entrypoint and command as the d2vm-entrypoint service at boot, with the image environment, working directory and user
+      --entrypoint-service         Run the image entrypoint and command as the oci2vm-entrypoint service at boot, with the image environment, working directory and user
       --build-arg stringArray      Set build-time variables
   -f, --file string                Name of the Dockerfile
       --force                      Override output qcow2 image
@@ -366,40 +346,40 @@ Global Flags:
 ```
 
 ```bash
-sudo d2vm build -p MyP4Ssw0rd -f ubuntu.Dockerfile -o ubuntu.qcow2 .
+sudo oci2vm build -p MyP4Ssw0rd -f ubuntu.Dockerfile -o ubuntu.qcow2 .
 ```
 
 Or if you want to create a VirtualBox image:
 
 ```bash
-sudo d2vm build -p MyP4Ssw0rd -f ubuntu.Dockerfile -o ubuntu.vdi .
+sudo oci2vm build -p MyP4Ssw0rd -f ubuntu.Dockerfile -o ubuntu.vdi .
 ```
 
 ### Running the image entrypoint, cloud-init and SSH
 
 By default, the virtual machine only boots the distribution: the image `ENTRYPOINT` and `CMD` are not run.
 
-- `--entrypoint-service` runs them at boot as the `d2vm-entrypoint` service (a systemd unit, or an OpenRC service on Alpine),
-  with the image `ENV`, `WORKDIR` and `USER`. The service runs the generated `/usr/local/bin/d2vm-entrypoint` script
+- `--entrypoint-service` runs them at boot as the `oci2vm-entrypoint` service (a systemd unit, or an OpenRC service on Alpine),
+  with the image `ENV`, `WORKDIR` and `USER`. The service runs the generated `/usr/local/bin/oci2vm-entrypoint` script
   and restarts it when it fails.
 - `--cloud-init` installs cloud-init, so that users, SSH keys and user data can be provided at boot,
   e.g. by KubeVirt `cloudInitNoCloud` volumes. The network stays configured by the image (DHCP on `eth0`):
-  the cloud-init network configuration is disabled in `/etc/cloud/cloud.cfg.d/99-d2vm-network.cfg`.
+  the cloud-init network configuration is disabled in `/etc/cloud/cloud.cfg.d/99-oci2vm-network.cfg`.
   `growpart` and `resize2fs` are installed, so that cloud-init extends the root filesystem to the disk size.
-  On Debian, Kali and Ubuntu, the cloud-init `locale` module is disabled in `/etc/cloud/cloud.cfg.d/99-d2vm-locale.cfg`:
+  On Debian, Kali and Ubuntu, the cloud-init `locale` module is disabled in `/etc/cloud/cloud.cfg.d/99-oci2vm-locale.cfg`:
   it needs the `locales` package, which container images do not ship.
 - `--ssh` installs and enables an OpenSSH server. The host keys generated at build time are removed:
   each virtual machine generates its own at first boot.
 
 ```bash
-sudo d2vm build -f app.Dockerfile -o app.qcow2 --entrypoint-service --cloud-init --ssh .
+sudo oci2vm build -f app.Dockerfile -o app.qcow2 --entrypoint-service --cloud-init --ssh .
 ```
 
 Unless `--dns` or `--dns-search` are set, the name servers are the ones provided by DHCP,
 through systemd-resolved when the image enables it (netplan), or written to `/etc/resolv.conf` by the DHCP client.
 
-When run as root, `d2vm` gives the output image to the user who ran `sudo`, or else to the owner of the output directory,
-e.g. the host directory mounted in the d2vm container.
+When run as root, `oci2vm` gives the output image to the user who ran `sudo`, or else to the owner of the output directory,
+e.g. the host directory mounted in the oci2vm container.
 
 ### KubeVirt Container Disk Images
 

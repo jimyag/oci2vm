@@ -12,8 +12,8 @@ RUN apt update && DEBIAN_FRONTEND=noninteractive apt install -y --no-install-rec
 COPY resize /usr/local/bin/
 
 # User setup variables
-ARG USER=d2vm
-ARG PASSWORD=d2vm
+ARG USER=oci2vm
+ARG PASSWORD=oci2vm
 ARG SSH_KEY=https://github.com/${USER}.keys
 
 # Setup user environment

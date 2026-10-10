@@ -27,7 +27,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"go.linka.cloud/d2vm/pkg/exec"
+	"github.com/jimyag/oci2vm/pkg/exec"
 )
 
 func dockerSocket() string {
@@ -121,7 +121,7 @@ func RunAndRemove(ctx context.Context, args ...string) error {
 	return Cmd(ctx, append([]string{"run", "--rm"}, args...)...)
 }
 
-func RunD2VM(ctx context.Context, image, version, in, out, cmd string, args ...string) error {
+func RunOCI2VM(ctx context.Context, image, version, in, out, cmd string, args ...string) error {
 	pwd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -133,7 +133,7 @@ func RunD2VM(ctx context.Context, image, version, in, out, cmd string, args ...s
 		out = pwd
 	}
 	if image == "" {
-		image = "linkacloud/d2vm"
+		image = "ghcr.io/jimyag/oci2vm"
 	}
 	if version == "" {
 		version = "latest"
@@ -159,7 +159,7 @@ func RunD2VM(ctx context.Context, image, version, in, out, cmd string, args ...s
 		"-v",
 		fmt.Sprintf("%s:/out", out),
 		"-w",
-		"/d2vm",
+		"/oci2vm",
 		fmt.Sprintf("%s:%s", image, version),
 		cmd,
 	)

@@ -1,4 +1,5 @@
 // Copyright 2022 Linka Cloud  All rights reserved.
+// Modifications copyright 2026 jimyag. See the git history for details.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,8 +22,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"go.linka.cloud/d2vm/pkg/docker"
-	exec2 "go.linka.cloud/d2vm/pkg/exec"
+	"github.com/jimyag/oci2vm/pkg/docker"
+	exec2 "github.com/jimyag/oci2vm/pkg/exec"
 )
 
 var (

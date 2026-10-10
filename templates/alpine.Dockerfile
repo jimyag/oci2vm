@@ -37,7 +37,7 @@ iface eth0 inet dhcp\n\
 # growpart and resize2fs let cloud-init extend the root filesystem to the disk size
 RUN apk add --no-cache cloud-init cloud-utils-growpart e2fsprogs-extra && \
     setup-cloud-init && \
-    printf 'network:\n  config: disabled\n' > /etc/cloud/cloud.cfg.d/99-d2vm-network.cfg
+    printf 'network:\n  config: disabled\n' > /etc/cloud/cloud.cfg.d/99-oci2vm-network.cfg
 {{- end }}
 
 {{- if .SSH }}

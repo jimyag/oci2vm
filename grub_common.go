@@ -1,4 +1,5 @@
 // Copyright 2023 Linka Cloud  All rights reserved.
+// Modifications copyright 2026 jimyag. See the git history for details.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package d2vm
+package oci2vm
 
 import (
 	"context"
@@ -22,7 +23,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"go.linka.cloud/d2vm/pkg/exec"
+	"github.com/jimyag/oci2vm/pkg/exec"
 )
 
 const grubCfg = `GRUB_DEFAULT=0

@@ -1,4 +1,5 @@
 # Copyright 2021 Linka Cloud  All rights reserved.
+# Modifications copyright 2026 jimyag. See the git history for details.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,9 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-MODULE = go.linka.cloud/d2vm
-
-REPOSITORY = linkacloud
+MODULE = github.com/jimyag/oci2vm
 
 TAG = $(shell git diff --quiet && git describe --tags --exact-match 2> /dev/null)
 VERSION_SUFFIX = $(shell git diff --quiet || echo "-dev")
@@ -37,7 +36,7 @@ bin:
 clean-bin:
 	@rm -rf $(BIN)
 
-DOCKER_IMAGE := linkacloud/d2vm
+DOCKER_IMAGE := ghcr.io/jimyag/oci2vm
 
 docker: docker-build docker-push
 
@@ -76,7 +75,7 @@ e2e: docker-build .build
 
 docs-up-to-date:
 	@$(MAKE) cli-docs
-	@git diff --quiet -- docs ':(exclude)docs/content/reference/d2vm_run_qemu.md' || (git --no-pager diff -- docs ':(exclude)docs/content/reference/d2vm_run_qemu.md'; echo "Please regenerate the documentation with 'make cli-docs'"; exit 1)
+	@git diff --quiet -- docs ':(exclude)docs/content/reference/oci2vm_run_qemu.md' || (git --no-pager diff -- docs ':(exclude)docs/content/reference/oci2vm_run_qemu.md'; echo "Please regenerate the documentation with 'make cli-docs'"; exit 1)
 
 check-fmt:
 	@[ "$(gofmt -l $(find . -name '*.go') 2>&1)" = "" ]
@@ -88,11 +87,11 @@ build-dev: docker-build .build
 
 install: docker-build
 	@go generate ./...
-	@go install -ldflags "-s -w -X '$(MODULE).Version=$(VERSION)' -X '$(MODULE).BuildDate=$(shell date)'" ./cmd/d2vm
+	@go install -ldflags "-s -w -X '$(MODULE).Version=$(VERSION)' -X '$(MODULE).BuildDate=$(shell date)'" ./cmd/oci2vm
 
 .build:
 	@go generate ./...
-	@CGO_ENABLED=0 go build -o d2vm -ldflags "-s -w -X '$(MODULE).Version=$(VERSION)' -X '$(MODULE).BuildDate=$(shell date)'" ./cmd/d2vm
+	@CGO_ENABLED=0 go build -o oci2vm -ldflags "-s -w -X '$(MODULE).Version=$(VERSION)' -X '$(MODULE).BuildDate=$(shell date)'" ./cmd/oci2vm
 
 .PHONY: build-snapshot
 build-snapshot: bin
@@ -115,7 +114,7 @@ completions: .build
 	@rm -rf completions
 	@mkdir -p completions
 	@for shell in bash zsh fish powershell; do \
-		./d2vm completion $$shell > completions/d2vm.$$shell; \
+		./oci2vm completion $$shell > completions/oci2vm.$$shell; \
 	done
 
 .PHONY: examples
@@ -123,22 +122,21 @@ examples: build-dev
 	@mkdir -p examples/build
 	@for f in $$(find examples -maxdepth 1 -type f -name '*Dockerfile'); do \
   		echo "Building $$f"; \
-  		./d2vm build -o examples/build/$$(basename $$f|cut -d'.' -f1).qcow2 -p root -f $$f examples --force; \
+  		./oci2vm build -o examples/build/$$(basename $$f|cut -d'.' -f1).qcow2 -p root -f $$f examples --force; \
 	  done
 	@echo "Building examples/full/Dockerfile"
-	@./d2vm build -o examples/build/full.qcow2 --build-arg=USER=adphi --build-arg=PASSWORD=adphi examples/full --force
+	@./oci2vm build -o examples/build/full.qcow2 --build-arg=USER=adphi --build-arg=PASSWORD=adphi examples/full --force
 
 cli-docs: .build
 	@rm -rf $(CLI_REFERENCE_PATH)
-	@./d2vm docs $(CLI_REFERENCE_PATH)
+	@./oci2vm docs $(CLI_REFERENCE_PATH)
 
 serve-docs:
-	@docker run --rm -i -t --user=$(UID) -p 8000:8000 -v $(PWD):/docs linkacloud/mkdocs-material serve -f /docs/docs/mkdocs.yml -a 0.0.0.0:8000
+	@docker run --rm -i -t --user=$(UID) -p 8000:8000 -v $(PWD):/docs squidfunk/mkdocs-material serve -f /docs/docs/mkdocs.yml -a 0.0.0.0:8000
 
 .PHONY: build-docs
 build-docs: clean-docs cli-docs
-	@docker run --rm -v $(PWD):/docs --user $$(id -u):$$(id -u) linkacloud/mkdocs-material build -f /docs/docs/mkdocs.yml -d build
-	@cp docs/CNAME docs/build/CNAME
+	@docker run --rm -v $(PWD):/docs --user $$(id -u):$$(id -u) squidfunk/mkdocs-material build -f /docs/docs/mkdocs.yml -d build
 
 GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 

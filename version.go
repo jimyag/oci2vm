@@ -1,4 +1,5 @@
 // Copyright 2022 Linka Cloud  All rights reserved.
+// Modifications copyright 2026 jimyag. See the git history for details.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,20 +13,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package d2vm
+package oci2vm
 
 import (
 	"fmt"
 	"runtime"
 
-	"go.linka.cloud/d2vm/pkg/qemu_img"
+	"github.com/jimyag/oci2vm/pkg/qemu_img"
 )
 
 var (
 	Arch      = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
 	Version   = ""
 	BuildDate = ""
-	Image     = "linkacloud/d2vm"
+	Image     = "ghcr.io/jimyag/oci2vm"
 )
 
 func init() {

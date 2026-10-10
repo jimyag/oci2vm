@@ -1,4 +1,5 @@
 // Copyright 2022 Linka Cloud  All rights reserved.
+// Modifications copyright 2026 jimyag. See the git history for details.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package d2vm
+package oci2vm
 
 import (
 	"context"
@@ -26,13 +27,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/multierr"
 
-	"go.linka.cloud/d2vm/pkg/docker"
-	"go.linka.cloud/d2vm/pkg/exec"
+	"github.com/jimyag/oci2vm/pkg/docker"
+	"github.com/jimyag/oci2vm/pkg/exec"
 )
 
 func testConfig(t *testing.T, ctx context.Context, name, img string, config Config, luks, grubBIOS, grubEFI bool) func() error {
 	require.NoError(t, docker.Pull(ctx, Arch, img))
-	tmpPath := filepath.Join(os.TempDir(), "d2vm-tests", strings.NewReplacer(":", "-", ".", "-").Replace(name))
+	tmpPath := filepath.Join(os.TempDir(), "oci2vm-tests", strings.NewReplacer(":", "-", ".", "-").Replace(name))
 	require.NoError(t, os.MkdirAll(tmpPath, 0755))
 	defer os.RemoveAll(tmpPath)
 	logrus.Infof("inspecting image %s", img)

@@ -15,7 +15,7 @@
 
 FROM golang:1.25 as builder
 
-WORKDIR /d2vm
+WORKDIR /oci2vm
 
 COPY go.mod go.mod
 COPY go.sum go.sum
@@ -50,6 +50,6 @@ COPY --from=docker:dind /usr/local/bin/docker /usr/local/bin/
 # build images for another platform than the docker host one
 COPY --from=docker:dind /usr/local/libexec/docker/cli-plugins/docker-buildx /usr/local/libexec/docker/cli-plugins/
 
-COPY --from=builder /d2vm/d2vm /usr/local/bin/
+COPY --from=builder /oci2vm/oci2vm /usr/local/bin/
 
-ENTRYPOINT ["/usr/local/bin/d2vm"]
+ENTRYPOINT ["/usr/local/bin/oci2vm"]
