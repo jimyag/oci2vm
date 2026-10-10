@@ -1,11 +1,10 @@
+# make computes the version with git in the image, and a missing tracked file
+# marks it -dev: only exclude untracked paths
 .idea
 tests
 disk*
-qemu.sh
 **/*.qcow2
 bin
 dist
 images
 examples/build
-e2e
-**/*_test.go

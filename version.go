@@ -19,14 +19,16 @@ import (
 	"fmt"
 	"runtime"
 
+	"github.com/jimmicro/version"
+
 	"github.com/jimyag/oci2vm/pkg/qemu_img"
 )
 
 var (
-	Arch      = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
-	Version   = ""
-	BuildDate = ""
-	Image     = "ghcr.io/jimyag/oci2vm"
+	Arch = fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH)
+	// Only injected tags select an image; unversioned builds use latest.
+	Version = version.GitTag
+	Image   = "ghcr.io/jimyag/oci2vm"
 )
 
 func init() {

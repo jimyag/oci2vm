@@ -26,10 +26,10 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/jimmicro/version"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"github.com/jimyag/oci2vm"
 	"github.com/jimyag/oci2vm/pkg/exec"
 )
 
@@ -42,7 +42,8 @@ var (
 		SilenceUsage: true,
 		// main logs the returned error
 		SilenceErrors: true,
-		Version:       oci2vm.Version,
+		// --version prints the same as the version command
+		Version: version.Version(),
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			switch timeFormat {
 			case "full", "f":
@@ -86,6 +87,7 @@ func init() {
 	_ = rootCmd.PersistentFlags().MarkDeprecated("debug", "use -v instead")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable Verbose output")
 	rootCmd.PersistentFlags().StringVar(&timeFormat, "time", "none", "Enable formated timed output, valide formats: 'relative (rel | r)', 'full (f)'")
+	rootCmd.SetVersionTemplate("{{.Version}}\n")
 	color.NoColor = false
 	logrus.StandardLogger().Formatter = &logfmtFormatter{start: time.Now()}
 }

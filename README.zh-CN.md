@@ -55,8 +55,11 @@ git clone https://github.com/jimyag/oci2vm && cd oci2vm
 make install
 ```
 
-`make install` 会把 `oci2vm` 二进制装到 `$GOBIN`，并构建同一版本的 `ghcr.io/jimyag/oci2vm` 镜像。只想通过 Docker
-使用的话，用这个镜像定义一个别名：
+`make install` 会把 `oci2vm` 二进制装到 `$GOBIN`，并构建同一版本的 `ghcr.io/jimyag/oci2vm` 镜像。
+源码构建使用 `make install` 或 `make .build`，才能保留 `-v` 的详细日志行为；直接 `go build` 会启用版本库的
+`-v` 版本快捷键。`oci2vm version` 和 `oci2vm --version` 输出包含 `gitTag`、`buildTime` 和 `goVersion` 的 JSON。
+
+只想通过 Docker 使用的话，用这个镜像定义一个别名：
 
 ```bash
 alias oci2vm="docker run --rm -it --privileged -v /var/run/docker.sock:/var/run/docker.sock -v \$PWD:/oci2vm -w /oci2vm ghcr.io/jimyag/oci2vm:latest"

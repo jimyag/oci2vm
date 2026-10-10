@@ -12,14 +12,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-MODULE = github.com/jimyag/oci2vm
-
 TAG = $(shell git diff --quiet && git describe --tags --exact-match 2> /dev/null)
 VERSION_SUFFIX = $(shell git diff --quiet || echo "-dev")
 VERSION = $(shell git describe --tags --exact-match 2> /dev/null || echo "`git describe --tags $$(git rev-list --tags --max-count=1) 2> /dev/null || echo v0.0.0`-`git rev-parse --short HEAD`")$(VERSION_SUFFIX)
 show-version:
 	@echo $(VERSION)
+
+# EnableCmd=false keeps github.com/jimmicro/version from printing the version
+# on -v, which is the --verbose flag of oci2vm
+VERSION_LDFLAGS = -X 'github.com/jimmicro/version.GitTag=$(VERSION)' -X 'github.com/jimmicro/version.BuildTime=$(shell date -u +%Y-%m-%dT%H:%M:%SZ)' -X 'github.com/jimmicro/version.EnableCmd=false'
 
 GORELEASER_VERSION := v2.18.3
 GORELEASER_URL := https://github.com/goreleaser/goreleaser/releases/download/$(GORELEASER_VERSION)/goreleaser_Linux_x86_64.tar.gz
@@ -71,7 +72,7 @@ test-templates:
 	@go test -exec sudo -count=1 -timeout 60m -v -run TestConfig/$(IMAGE)
 
 e2e: docker-build .build
-	@go test -v -exec sudo -count=1 -timeout 60m -ldflags "-X '$(MODULE).Version=$(VERSION)' -X '$(MODULE).BuildDate=$(shell date)'" ./e2e -args -images $(E2E_IMAGES)
+	@go test -v -exec sudo -count=1 -timeout 60m -ldflags "$(VERSION_LDFLAGS)" ./e2e -args -images $(E2E_IMAGES)
 
 docs-up-to-date:
 	@$(MAKE) cli-docs
@@ -86,11 +87,11 @@ build-dev: docker-build .build
 
 install: docker-build
 	@go generate ./...
-	@go install -ldflags "-s -w -X '$(MODULE).Version=$(VERSION)' -X '$(MODULE).BuildDate=$(shell date)'" ./cmd/oci2vm
+	@go install -ldflags "-s -w $(VERSION_LDFLAGS)" ./cmd/oci2vm
 
 .build:
 	@go generate ./...
-	@CGO_ENABLED=0 go build -o oci2vm -ldflags "-s -w -X '$(MODULE).Version=$(VERSION)' -X '$(MODULE).BuildDate=$(shell date)'" ./cmd/oci2vm
+	@CGO_ENABLED=0 go build -o oci2vm -ldflags "-s -w $(VERSION_LDFLAGS)" ./cmd/oci2vm
 
 .PHONY: build-snapshot
 build-snapshot: bin

@@ -18,16 +18,14 @@ package main
 import (
 	"fmt"
 
+	"github.com/jimmicro/version"
 	"github.com/spf13/cobra"
-
-	"github.com/jimyag/oci2vm"
 )
 
 var cmdVersion = &cobra.Command{
 	Use: "version",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(oci2vm.Version)
-		fmt.Println(oci2vm.BuildDate)
+		fmt.Println(version.Version())
 	},
 }
 

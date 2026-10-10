@@ -60,7 +60,11 @@ make install
 ```
 
 `make install` installs the `oci2vm` binary in `$GOBIN` and builds the `ghcr.io/jimyag/oci2vm` image with the same
-version. To run oci2vm with Docker only, define an alias on the image:
+version. Use `make install` or `make .build` for source builds: they preserve `-v` as verbose output; plain
+`go build` leaves the version library's `-v` shortcut enabled. `oci2vm version` and `oci2vm --version` print
+JSON with `gitTag`, `buildTime` and `goVersion`.
+
+To run oci2vm with Docker only, define an alias on the image:
 
 ```bash
 alias oci2vm="docker run --rm -it --privileged -v /var/run/docker.sock:/var/run/docker.sock -v \$PWD:/oci2vm -w /oci2vm ghcr.io/jimyag/oci2vm:latest"

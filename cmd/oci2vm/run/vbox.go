@@ -54,13 +54,13 @@ func init() {
 
 	// networking
 	flags.Var(&networks, "networking", "Network config, may be repeated. [type=](null|nat|bridged|intnet|hostonly|generic|natnetwork[<devicename>])[,[bridge|host]adapter=<interface>]")
-
-	if runtime.GOOS == "windows" {
-		logrus.Fatalf("TODO: Windows is not yet supported")
-	}
 }
 
 func Vbox(cmd *cobra.Command, args []string) {
+	// only this command: in init, the check stopped every command on Windows
+	if runtime.GOOS == "windows" {
+		logrus.Fatalf("TODO: Windows is not yet supported")
+	}
 	path := args[0]
 	if err := vbox(cmd.Context(), path); err != nil {
 		logrus.Fatal(err)

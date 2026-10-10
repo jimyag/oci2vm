@@ -23,7 +23,12 @@ builds:
   env:
   - CGO_ENABLED=0
   ldflags:
-  - -s -w -X "github.com/jimyag/oci2vm.Image={{.Env.IMAGE}}" -X "github.com/jimyag/oci2vm.Version={{.Env.VERSION}}" -X "github.com/jimyag/oci2vm.BuildDate={{.CommitDate}}"
+  - -s -w
+  - -X "github.com/jimyag/oci2vm.Image={{.Env.IMAGE}}"
+  - -X "github.com/jimmicro/version.GitTag={{.Env.VERSION}}"
+  - -X "github.com/jimmicro/version.BuildTime={{.CommitDate}}"
+  # -v is the --verbose flag of oci2vm, not the version
+  - -X "github.com/jimmicro/version.EnableCmd=false"
   goos:
   - linux
   - windows
