@@ -94,6 +94,10 @@ var (
 			if err := docker.Build(cmd.Context(), pull, tag, file, args[0], platform, buildArgs...); err != nil {
 				return err
 			}
+			// the image is only built to be converted
+			if !keepCache {
+				defer docker.Remove(cmd.Context(), tag)
+			}
 			if err := oci2vm.Convert(
 				cmd.Context(),
 				tag,
