@@ -45,9 +45,10 @@ func Info(ctx context.Context, in string) (*ImgInfo, error) {
 		err error
 	)
 	if path, _ := exec.LookPath("qemu-img"); path == "" {
-		inAbs, err := filepath.Abs(in)
+		var inAbs string
+		inAbs, err = filepath.Abs(in)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get absolute path for %q: %v", path, err)
+			return nil, fmt.Errorf("failed to get absolute path for %q: %v", in, err)
 		}
 		inMount := filepath.Dir(inAbs)
 		in := filepath.Join("/in", filepath.Base(inAbs))
