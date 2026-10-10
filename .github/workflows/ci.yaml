@@ -1,0 +1,389 @@
+name: Tests and Build
+
+on:
+  push:
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ main ]
+jobs:
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        # fetching all tags is required for the Makefile to compute the right version
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: "1.25"
+
+    - name: Set up QEMU dependency
+      uses: docker/setup-qemu-action@v1
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Setup dependencies
+      run: sudo apt update && sudo apt install -y util-linux udev parted e2fsprogs mount tar extlinux qemu-utils qemu-system
+
+    - name: Share cache with other actions
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/go/pkg/mod
+          /tmp/.buildx-cache
+        key: ${{ runner.os }}-tests-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-tests-
+
+    - name: Run linter
+      run: make vet
+
+    - name: Run tests
+      run: git --no-pager diff --exit-code HEAD~1 HEAD **/**.go templates/ || make tests
+
+  templates-tests:
+    name: Test Templates
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+        - ubuntu
+        - debian
+        - kalilinux
+        - alpine
+        - centos
+        - quay.io/centos/centos:stream
+        - almalinux
+        - rockylinux
+
+    steps:
+    - name: Free Disk Space (Ubuntu)
+      uses: linka-cloud/free-disk-space@main
+      if: matrix.image == 'quay.io/centos/centos:stream'
+
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        # fetching all tags is required for the Makefile to compute the right version
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: "1.25"
+
+    - name: Set up QEMU dependency
+      uses: docker/setup-qemu-action@v1
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Setup dependencies
+      run: sudo apt update && sudo apt install -y util-linux udev parted e2fsprogs mount tar extlinux qemu-utils qemu-system
+
+    - name: Share cache with other actions
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/go/pkg/mod
+          /tmp/.buildx-cache
+        key: ${{ runner.os }}-tests-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-tests-
+
+    - name: Run tests
+      run: git --no-pager diff --exit-code HEAD~1 HEAD **/**.go templates/ || IMAGE=${{ matrix.image }} make test-templates
+
+
+  e2e-tests:
+    name: End to end Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+        - alpine:3.23
+        - ubuntu:22.04
+        - ubuntu:24.04
+        - debian:12
+        - debian:13
+        - centos:8
+        - quay.io/centos/centos:stream10
+        - almalinux:10
+        - rockylinux:9
+    steps:
+    - name: Free Disk Space (Ubuntu)
+      uses: linka-cloud/free-disk-space@main
+
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        # fetching all tags is required for the Makefile to compute the right version
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: "1.25"
+
+    - name: Set up QEMU dependency
+      uses: docker/setup-qemu-action@v1
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Setup dependencies
+      run: sudo apt update && sudo apt install -y util-linux udev parted e2fsprogs mount tar extlinux qemu-utils qemu-system ovmf
+
+    - name: Share cache with other actions
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/go/pkg/mod
+          /tmp/.buildx-cache
+        key: ${{ runner.os }}-e2e-tests-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-tests-
+
+    - name: Run end-to-end tests
+      run: E2E_IMAGES=${{ matrix.image }} make e2e
+
+  docs-up-to-date:
+    name: Docs up to date
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        # fetching all tags is required for the Makefile to compute the right version
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: "1.25"
+
+    - name: Share cache with other actions
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/go/pkg/mod
+          /tmp/.buildx-cache
+        key: ${{ runner.os }}-tests-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-tests-
+
+    - name: Check if docs are up to date
+      run: make docs-up-to-date
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        # fetching all tags is required for the Makefile to compute the right version
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: "1.25"
+
+    - name: Set up QEMU dependency
+      uses: docker/setup-qemu-action@v1
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v1
+      if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main'
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+    - name: Share cache with other actions
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/go/pkg/mod
+          /tmp/.buildx-cache
+        key: ${{ runner.os }}-build-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-build-
+
+    - name: Ensure all files were well formatted
+      run: make check-fmt
+
+    - name: Import GPG key
+      id: import_gpg
+      uses: crazy-max/ghaction-import-gpg@v4
+      if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main'
+      with:
+        gpg_private_key: ${{ secrets.GPG_KEY }}
+        passphrase: ${{ secrets.GPG_PASSWORD }}
+
+    - name: Build Snapshot
+      run: make build-snapshot
+
+    - name: Release Snapshot
+      if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main'
+      env:
+        GITHUB_TOKEN: ${{ secrets.REPOSITORIES_ACCESS_TOKEN }}
+        GPG_PASSWORD: ${{ secrets.GPG_PASSWORD }}
+        GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
+      run: make release-snapshot
+
+  build-image:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        # fetching all tags is required for the Makefile to compute the right version
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: "1.25"
+
+    - name: Set up QEMU dependency
+      uses: docker/setup-qemu-action@v1
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v1
+      if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main'
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+    - name: Share cache with other actions
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/go/pkg/mod
+          /tmp/.buildx-cache
+        key: ${{ runner.os }}-build-image-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-build-image-
+
+    - name: Build Docker images
+      run: make docker-build
+
+    - name: Push Docker images
+      if: github.ref == 'refs/heads/main'
+      run: make docker-push
+
+  release:
+    name: Release Binaries
+    runs-on: ubuntu-latest
+    if: startsWith(github.event.ref, 'refs/tags/v')
+    needs:
+    - tests
+    - templates-tests
+    - docs-up-to-date
+    - build
+    - e2e-tests
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        # fetching all tags is required for the Makefile to compute the right version
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: "1.25"
+
+    - name: Share cache with other actions
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/go/pkg/mod
+          /tmp/.buildx-cache
+        key: ${{ runner.os }}-build-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-build-
+
+    - name: Import GPG key
+      id: import_gpg
+      uses: crazy-max/ghaction-import-gpg@v4
+      with:
+        gpg_private_key: ${{ secrets.GPG_KEY }}
+        passphrase: ${{ secrets.GPG_PASSWORD }}
+
+    - name: Build binaries
+      run: make build
+
+    - name: Release binaries
+      env:
+        GITHUB_TOKEN: ${{ secrets.REPOSITORIES_ACCESS_TOKEN }}
+        GPG_PASSWORD: ${{ secrets.GPG_PASSWORD }}
+        GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
+      run: make release
+
+  release-image:
+    name: Release Docker Image
+    runs-on: ubuntu-latest
+    if: startsWith(github.event.ref, 'refs/tags/v')
+    needs:
+    - tests
+    - docs-up-to-date
+    - build-image
+    - e2e-tests
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        # fetching all tags is required for the Makefile to compute the right version
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: "1.25"
+
+    - name: Set up QEMU dependency
+      uses: docker/setup-qemu-action@v1
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Login to Docker Hub
+      uses: docker/login-action@v1
+      with:
+        username: ${{ secrets.DOCKER_HUB_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+    - name: Share cache with other actions
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/go/pkg/mod
+          /tmp/.buildx-cache
+        key: ${{ runner.os }}-build-image-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-build-image-
+
+    - name: Build Docker images
+      run: make docker-build
+
+    - name: Release Docker images
+      run: make docker-push
