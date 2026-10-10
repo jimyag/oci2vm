@@ -36,14 +36,23 @@ oci2vm convert nginx:1.27-alpine -o nginx.qcow2
 Requirements:
 
 - Docker.
-- Go and make, to build oci2vm.
+- Go and make, to build oci2vm from source.
 - On Linux, root privileges (`sudo`), to set up the loop devices and mount the disk, and these packages:
   util-linux, udev, parted, e2fsprogs, dosfstools, mount, tar, extlinux, qemu-utils, cryptsetup (for LUKS).
 
 On macOS and Windows, or on Linux without root privileges, the `build` and `convert` commands run in the
 `ghcr.io/jimyag/oci2vm` image, which already contains these packages. Windows is untested.
 
-No release is published yet. Build oci2vm from source:
+The [releases](https://github.com/jimyag/oci2vm/releases) publish the binaries themselves, named `oci2vm_<os>_<arch>`,
+with `checksums.txt`, and the `ghcr.io/jimyag/oci2vm` image of the same version, which the binaries pull when they
+need it. For example, on macOS with Apple silicon:
+
+```bash
+curl -fsSLo oci2vm https://github.com/jimyag/oci2vm/releases/latest/download/oci2vm_darwin_arm64
+chmod +x oci2vm && sudo mv oci2vm /usr/local/bin/
+```
+
+To build oci2vm from source:
 
 ```bash
 git clone https://github.com/jimyag/oci2vm && cd oci2vm
@@ -51,11 +60,10 @@ make install
 ```
 
 `make install` installs the `oci2vm` binary in `$GOBIN` and builds the `ghcr.io/jimyag/oci2vm` image with the same
-version. To run oci2vm with Docker only, build the image and define an alias:
+version. To run oci2vm with Docker only, define an alias on the image:
 
 ```bash
-make docker-build
-alias oci2vm="docker run --rm -it --privileged -v /var/run/docker.sock:/var/run/docker.sock -v \$PWD:/oci2vm -w /oci2vm ghcr.io/jimyag/oci2vm:$(make show-version)"
+alias oci2vm="docker run --rm -it --privileged -v /var/run/docker.sock:/var/run/docker.sock -v \$PWD:/oci2vm -w /oci2vm ghcr.io/jimyag/oci2vm:latest"
 ```
 
 With the alias, the build context, the Dockerfile and the output must be in the current directory.
@@ -306,8 +314,9 @@ and grub-efi. RHEL, the other distributions, and the distroless and scratch imag
 `TestConfig`, run by `make test-templates`, removes the images it converts, even those you had pulled before.
 Some flag defaults depend on the host: regenerate the command reference on linux/amd64, where the CI checks it with
 `make docs-up-to-date`. The CI runs golangci-lint on pushes and pull requests to `main`, and the tests and builds on
-pull requests to `main` and on `v*` tags. It publishes neither binaries nor images; on `v*` tags, it deploys the
-documentation site to the `gh-pages` branch.
+pull requests to `main` and on `v*` tags. Pushing a `v*` tag releases oci2vm: the Release workflow pushes the
+linux/amd64 and linux/arm64 image, then publishes the binaries in a GitHub release with goreleaser, and the Docs
+workflow deploys the documentation site to the `gh-pages` branch.
 
 ## License
 

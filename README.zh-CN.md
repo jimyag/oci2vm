@@ -33,14 +33,22 @@ oci2vm convert nginx:1.27-alpine -o nginx.qcow2
 需要：
 
 - Docker。
-- Go 和 make，用于构建 oci2vm。
+- Go 和 make，用于从源码构建 oci2vm。
 - 在 Linux 上直接运行时，需要 root 权限（`sudo`），用来创建 loop 设备和挂载磁盘，并安装以下软件包：util-linux、udev、parted、
   e2fsprogs、dosfstools、mount、tar、extlinux、qemu-utils，使用 LUKS 时还要 cryptsetup。
 
 在 macOS、Windows 上，或者在 Linux 上不以 root 运行时，`build` 和 `convert` 命令会在 `ghcr.io/jimyag/oci2vm`
 镜像里执行，这些软件包都已包含在内。Windows 没有测试过。
 
-目前还没有发布版本，需要从源码构建：
+[Releases](https://github.com/jimyag/oci2vm/releases) 直接发布二进制文件，文件名为 `oci2vm_<os>_<arch>`，附带
+`checksums.txt`；同时发布同一版本的 `ghcr.io/jimyag/oci2vm` 镜像，二进制需要时会自动拉取。例如在 Apple 芯片的 macOS 上：
+
+```bash
+curl -fsSLo oci2vm https://github.com/jimyag/oci2vm/releases/latest/download/oci2vm_darwin_arm64
+chmod +x oci2vm && sudo mv oci2vm /usr/local/bin/
+```
+
+从源码构建：
 
 ```bash
 git clone https://github.com/jimyag/oci2vm && cd oci2vm
@@ -48,11 +56,10 @@ make install
 ```
 
 `make install` 会把 `oci2vm` 二进制装到 `$GOBIN`，并构建同一版本的 `ghcr.io/jimyag/oci2vm` 镜像。只想通过 Docker
-使用的话，构建镜像后定义一个别名：
+使用的话，用这个镜像定义一个别名：
 
 ```bash
-make docker-build
-alias oci2vm="docker run --rm -it --privileged -v /var/run/docker.sock:/var/run/docker.sock -v \$PWD:/oci2vm -w /oci2vm ghcr.io/jimyag/oci2vm:$(make show-version)"
+alias oci2vm="docker run --rm -it --privileged -v /var/run/docker.sock:/var/run/docker.sock -v \$PWD:/oci2vm -w /oci2vm ghcr.io/jimyag/oci2vm:latest"
 ```
 
 使用这个别名时，构建上下文、Dockerfile 和输出文件都必须在当前目录下。
@@ -288,7 +295,8 @@ amd64 磁盘在 KVM 上用 syslinux 测试，其中一部分也测了 grub-efi�
 `make test-templates` 运行的 `TestConfig` 会删除它转换过的镜像，包括你事先拉取的。部分参数的默认值取决于主机，
 所以要在 linux/amd64 上重新生成命令参考，CI 也是在 linux/amd64 上用 `make docs-up-to-date` 检查的。
 CI 在推送到 `main` 和向 `main` 提交 PR 时运行 golangci-lint，在向 `main` 提交 PR 和推送 `v*` tag 时运行测试和构建。
-CI 不发布二进制和镜像；推送 `v*` tag 时会把文档站部署到 `gh-pages` 分支。
+推送 `v*` tag 即发布新版本：Release workflow 先推送 linux/amd64 和 linux/arm64 镜像，再用 goreleaser 把二进制发布到
+GitHub release；Docs workflow 把文档站部署到 `gh-pages` 分支。
 
 ## 许可证
 
