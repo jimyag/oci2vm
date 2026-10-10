@@ -17,6 +17,7 @@ package oci2vm
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -117,7 +118,7 @@ func ParseOSRelease(s string) (OSRelease, error) {
 func FetchDockerImageOSRelease(ctx context.Context, img string) (OSRelease, error) {
 	o, _, err := docker.CmdOut(ctx, "run", "--rm", "-i", "--entrypoint", "cat", img, "/etc/os-release")
 	if err != nil {
-		return OSRelease{}, err
+		return OSRelease{}, fmt.Errorf("cannot read /etc/os-release with cat in %s: only images based on a supported distribution can be converted, not distroless or scratch ones: %w", img, err)
 	}
 	return ParseOSRelease(o)
 }
