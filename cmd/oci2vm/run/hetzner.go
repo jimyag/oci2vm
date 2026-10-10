@@ -271,7 +271,7 @@ func runHetzner(ctx context.Context, imgPath string, stdin io.Reader, stderr io.
 			if b, err := wses.CombinedOutput(cmd); err != nil {
 				return fmt.Errorf("%v: %s", err, string(b))
 			} else {
-				logrus.Debugf(string(b))
+				logrus.Debug(string(b))
 			}
 			return nil
 		}()
@@ -298,7 +298,7 @@ func runHetzner(ctx context.Context, imgPath string, stdin io.Reader, stderr io.
 	if err != nil {
 		return fmt.Errorf("%v: %s", err, string(b))
 	}
-	logrus.Debugf(string(b))
+	logrus.Debug(string(b))
 	parts := strings.Fields(strings.TrimSuffix(string(b), "\n"))
 	vmPartNumber, err := strconv.Atoi(strings.Replace(parts[len(parts)-1], vmBlockPath, "", 1))
 	if err != nil {
@@ -315,7 +315,7 @@ func runHetzner(ctx context.Context, imgPath string, stdin io.Reader, stderr io.
 	if b, err := gses.CombinedOutput(cmd); err != nil {
 		return fmt.Errorf("%v: %s", err, string(b))
 	} else {
-		logrus.Debugf(string(b))
+		logrus.Debug(string(b))
 	}
 	cses, err := sc.NewSession()
 	if err != nil {
@@ -328,7 +328,7 @@ func runHetzner(ctx context.Context, imgPath string, stdin io.Reader, stderr io.
 	if b, err := cses.CombinedOutput(cmd); err != nil {
 		return fmt.Errorf("%v: %s", err, string(b))
 	} else {
-		logrus.Debugf(string(b))
+		logrus.Debug(string(b))
 	}
 	eses, err := sc.NewSession()
 	if err != nil {
