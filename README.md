@@ -294,7 +294,7 @@ and grub-efi. RHEL, the other distributions, and the distroless and scratch imag
 | `make .build` | Builds the `./oci2vm` binary |
 | `make docker-build` | Builds the `ghcr.io/jimyag/oci2vm:VERSION` image |
 | `make install` | Both, the binary in `$GOBIN` |
-| `make check-fmt`, `make vet` | Formatting and `go vet`, as the CI does |
+| `make lint` | Runs [golangci-lint](https://golangci-lint.run/) v2, built with Go 1.27 or later, as the CI does |
 | `go test -run 'TestDockerImage\|TestImageEnvProfile' .` | Unit tests, without root nor Docker |
 | `make tests` | Tests of the root package, with `sudo` and Docker |
 | `make test-templates IMAGE=ubuntu:24.04` | Converts an image with its template (`TestConfig`) |
@@ -305,8 +305,9 @@ and grub-efi. RHEL, the other distributions, and the distroless and scratch imag
 
 `TestConfig`, run by `make test-templates`, removes the images it converts, even those you had pulled before.
 Some flag defaults depend on the host: regenerate the command reference on linux/amd64, where the CI checks it with
-`make docs-up-to-date`. The CI runs the tests and builds on pull requests to `main` and on `v*` tags, and publishes
-neither binaries nor images; on `v*` tags, it deploys the documentation site to the `gh-pages` branch.
+`make docs-up-to-date`. The CI runs golangci-lint on pushes and pull requests to `main`, and the tests and builds on
+pull requests to `main` and on `v*` tags. It publishes neither binaries nor images; on `v*` tags, it deploys the
+documentation site to the `gh-pages` branch.
 
 ## License
 

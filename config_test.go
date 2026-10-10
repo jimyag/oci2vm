@@ -34,7 +34,7 @@ import (
 func testConfig(t *testing.T, ctx context.Context, name, img string, config Config, luks, grubBIOS, grubEFI bool) func() error {
 	require.NoError(t, docker.Pull(ctx, Arch, img))
 	tmpPath := filepath.Join(os.TempDir(), "oci2vm-tests", strings.NewReplacer(":", "-", ".", "-").Replace(name))
-	require.NoError(t, os.MkdirAll(tmpPath, 0755))
+	require.NoError(t, os.MkdirAll(tmpPath, 0o755))
 	defer os.RemoveAll(tmpPath)
 	logrus.Infof("inspecting image %s", img)
 	r, err := FetchDockerImageOSRelease(ctx, img)
@@ -59,8 +59,8 @@ func testConfig(t *testing.T, ctx context.Context, name, img string, config Conf
 	dir := filepath.Dir(p)
 	f, err := os.Create(p)
 	require.NoError(t, err)
-	defer f.Close()
 	require.NoError(t, d.Render(f))
+	require.NoError(t, f.Close())
 	imgUUID := uuid.New().String()
 	logrus.Infof("building kernel enabled image")
 	require.NoError(t, docker.Build(ctx, false, imgUUID, p, dir, Arch))
@@ -153,15 +153,11 @@ func TestConfig(t *testing.T) {
 	bools := []bool{false, true}
 
 	for _, test := range tests {
-		test := test
 		t.Run(test.image, func(t *testing.T) {
 			t.Parallel()
 			for _, luks := range bools {
 				for _, grubBIOS := range bools {
 					for _, grubEFI := range bools {
-						luks := luks
-						grubBIOS := grubBIOS
-						grubEFI := grubEFI
 						n := []string{test.image}
 						for i, v := range []bool{luks, grubBIOS, grubEFI} {
 							if v {
@@ -171,8 +167,7 @@ func TestConfig(t *testing.T) {
 						name := strings.Join(n, "-")
 						var clean func() error
 						t.Run(name, func(t *testing.T) {
-							ctx, cancel := context.WithCancel(context.Background())
-							defer cancel()
+							ctx := t.Context()
 							clean = testConfig(t, ctx, name, test.image, test.config, luks, grubBIOS, grubEFI)
 						})
 						defer func() {

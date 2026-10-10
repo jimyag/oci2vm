@@ -32,9 +32,6 @@ jobs:
     - name: Setup dependencies
       run: sudo apt update && sudo apt install -y util-linux udev parted e2fsprogs mount tar extlinux qemu-utils qemu-system
 
-    - name: Run linter
-      run: make vet
-
     - name: Run tests
       run: git --no-pager diff --exit-code HEAD~1 HEAD **/**.go templates/ || make tests
 
@@ -168,9 +165,6 @@ jobs:
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v4
-
-    - name: Ensure all files were well formatted
-      run: make check-fmt
 
     - name: Build Snapshot
       run: make build-snapshot

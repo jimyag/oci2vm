@@ -276,7 +276,7 @@ amd64 磁盘在 KVM 上用 syslinux 测试，其中一部分也测了 grub-efi�
 | `make .build` | 构建 `./oci2vm` 二进制 |
 | `make docker-build` | 构建 `ghcr.io/jimyag/oci2vm:VERSION` 镜像 |
 | `make install` | 二者都构建，二进制装到 `$GOBIN` |
-| `make check-fmt`、`make vet` | 检查格式并运行 `go vet`，和 CI 一致 |
+| `make lint` | 运行 [golangci-lint](https://golangci-lint.run/) v2（需用 Go 1.27 或更新版本构建），和 CI 一致 |
 | `go test -run 'TestDockerImage\|TestImageEnvProfile' .` | 单元测试，不需要 root 和 Docker |
 | `make tests` | 根包的测试，需要 `sudo` 和 Docker |
 | `make test-templates IMAGE=ubuntu:24.04` | 用模板转换指定镜像（`TestConfig`） |
@@ -287,8 +287,8 @@ amd64 磁盘在 KVM 上用 syslinux 测试，其中一部分也测了 grub-efi�
 
 `make test-templates` 运行的 `TestConfig` 会删除它转换过的镜像，包括你事先拉取的。部分参数的默认值取决于主机，
 所以要在 linux/amd64 上重新生成命令参考，CI 也是在 linux/amd64 上用 `make docs-up-to-date` 检查的。
-CI 在向 `main` 提交 PR 和推送 `v*` tag 时运行测试和构建，不发布二进制和镜像；推送 `v*` tag 时会把文档站部署到
-`gh-pages` 分支。
+CI 在推送到 `main` 和向 `main` 提交 PR 时运行 golangci-lint，在向 `main` 提交 PR 和推送 `v*` tag 时运行测试和构建。
+CI 不发布二进制和镜像；推送 `v*` tag 时会把文档站部署到 `gh-pages` 分支。
 
 ## 许可证
 

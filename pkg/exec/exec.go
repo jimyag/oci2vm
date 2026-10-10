@@ -24,9 +24,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var (
-	Run = RunNoOut
-)
+var Run = RunNoOut
 
 func SetDebug(debug bool) {
 	if debug {

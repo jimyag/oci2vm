@@ -23,15 +23,13 @@ import (
 	"github.com/jimyag/oci2vm"
 )
 
-var (
-	cmdVersion = &cobra.Command{
-		Use: "version",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Println(oci2vm.Version)
-			fmt.Println(oci2vm.BuildDate)
-		},
-	}
-)
+var cmdVersion = &cobra.Command{
+	Use: "version",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println(oci2vm.Version)
+		fmt.Println(oci2vm.BuildDate)
+	},
+}
 
 func init() {
 	rootCmd.AddCommand(cmdVersion)

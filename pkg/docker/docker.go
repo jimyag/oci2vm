@@ -38,8 +38,8 @@ func dockerSocket() string {
 }
 
 func FormatImgName(name string) string {
-	s := strings.Replace(name, ":", "-", -1)
-	s = strings.Replace(s, "/", "_", -1)
+	s := strings.ReplaceAll(name, ":", "-")
+	s = strings.ReplaceAll(s, "/", "_")
 	return s
 }
 

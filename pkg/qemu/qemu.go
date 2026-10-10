@@ -112,27 +112,27 @@ func Run(ctx context.Context, path string, opts ...Option) error {
 		config.netdevConfig = "user,id=t0"
 	case NetworkingTap:
 		if len(netMode) != 2 {
-			return fmt.Errorf("Not enough arguments for %q networking mode", NetworkingTap)
+			return fmt.Errorf("not enough arguments for %q networking mode", NetworkingTap)
 		}
 		if len(config.publishedPorts) != 0 {
-			return fmt.Errorf("Port publishing requires %q networking mode", NetworkingUser)
+			return fmt.Errorf("port publishing requires %q networking mode", NetworkingUser)
 		}
 		config.netdevConfig = fmt.Sprintf("tap,id=t0,ifname=%s,script=no,downscript=no", netMode[1])
 	case NetworkingBridge:
 		if len(netMode) != 2 {
-			return fmt.Errorf("Not enough arguments for %q networking mode", NetworkingBridge)
+			return fmt.Errorf("not enough arguments for %q networking mode", NetworkingBridge)
 		}
 		if len(config.publishedPorts) != 0 {
-			return fmt.Errorf("Port publishing requires %q networking mode", NetworkingUser)
+			return fmt.Errorf("port publishing requires %q networking mode", NetworkingUser)
 		}
 		config.netdevConfig = fmt.Sprintf("bridge,id=t0,br=%s", netMode[1])
 	case NetworkingNone:
 		if len(config.publishedPorts) != 0 {
-			return fmt.Errorf("Port publishing requires %q networking mode", NetworkingUser)
+			return fmt.Errorf("port publishing requires %q networking mode", NetworkingUser)
 		}
 		config.netdevConfig = ""
 	default:
-		return fmt.Errorf("Invalid networking mode: %s", netMode[0])
+		return fmt.Errorf("invalid networking mode: %s", netMode[0])
 	}
 
 	if err := config.discoverBinaries(); err != nil {
@@ -157,7 +157,7 @@ func (c *config) runQemuLocal(ctx context.Context) (err error) {
 				qemuImgCmd := exec.Command(c.qemuImgPath, "create", "-f", d.Format, d.Path, fmt.Sprintf("%dM", d.Size))
 				log.Debugf("%v", qemuImgCmd.Args)
 				if err := qemuImgCmd.Run(); err != nil {
-					return fmt.Errorf("Error creating disk [%s] format %s:  %s", d.Path, d.Format, err.Error())
+					return fmt.Errorf("error creating disk [%s] format %s:  %s", d.Path, d.Format, err.Error())
 				}
 			} else {
 				return err
@@ -168,8 +168,8 @@ func (c *config) runQemuLocal(ctx context.Context) (err error) {
 	}
 
 	// Detached mode is only supported in a container.
-	if c.detached == true {
-		return fmt.Errorf("Detached mode is only supported when running in a container, not locally")
+	if c.detached {
+		return fmt.Errorf("detached mode is only supported when running in a container, not locally")
 	}
 
 	qemuCmd := exec.CommandContext(ctx, c.qemuBinPath, args...)
@@ -177,7 +177,7 @@ func (c *config) runQemuLocal(ctx context.Context) (err error) {
 	log.Debugf("%v", qemuCmd.Args)
 
 	// If we're not using a separate window then link the execution to stdin/out
-	if c.gui == true {
+	if c.gui {
 		qemuCmd.Stdin = nil
 		qemuCmd.Stdout = nil
 		qemuCmd.Stderr = nil
@@ -219,7 +219,7 @@ func (c *config) buildQemuCmdline() ([]string, error) {
 	case "x86_64":
 		goArch = "amd64"
 	default:
-		return nil, fmt.Errorf("%s is an unsupported architecture.", c.arch)
+		return nil, fmt.Errorf("%s is an unsupported architecture", c.arch)
 	}
 
 	if goArch != runtime.GOARCH {
@@ -260,7 +260,7 @@ func (c *config) buildQemuCmdline() ([]string, error) {
 	if runtime.GOOS != "darwin" {
 		rng := "rng-random,id=rng0"
 		if runtime.GOOS == "linux" {
-			rng = rng + ",filename=/dev/urandom"
+			rng += ",filename=/dev/urandom"
 		}
 		if c.arch == "s390x" {
 			qemuArgs = append(qemuArgs, "-object", rng, "-device", "virtio-rng-ccw,rng=rng0")
@@ -269,20 +269,12 @@ func (c *config) buildQemuCmdline() ([]string, error) {
 		}
 	}
 
-	var lastDisk int
 	for i, d := range c.disks {
-		index := i
 		if d.Format != "" {
-			qemuArgs = append(qemuArgs, "-drive", "file="+d.Path+",format="+d.Format+",index="+strconv.Itoa(index)+",media=disk")
+			qemuArgs = append(qemuArgs, "-drive", "file="+d.Path+",format="+d.Format+",index="+strconv.Itoa(i)+",media=disk")
 		} else {
-			qemuArgs = append(qemuArgs, "-drive", "file="+d.Path+",index="+strconv.Itoa(index)+",media=disk")
+			qemuArgs = append(qemuArgs, "-drive", "file="+d.Path+",index="+strconv.Itoa(i)+",media=disk")
 		}
-		lastDisk = index
-	}
-
-	// Ensure CDROMs start from at least hdc
-	if lastDisk < 2 {
-		lastDisk = 2
 	}
 
 	if c.netdevConfig != "" {
@@ -292,16 +284,12 @@ func (c *config) buildQemuCmdline() ([]string, error) {
 		} else {
 			qemuArgs = append(qemuArgs, "-device", "virtio-net-pci,netdev=t0,mac="+mac.String())
 		}
-		forwardings, err := buildQemuForwardings(c.publishedPorts)
-		if err != nil {
-			log.Error(err)
-		}
-		qemuArgs = append(qemuArgs, "-netdev", c.netdevConfig+forwardings)
+		qemuArgs = append(qemuArgs, "-netdev", c.netdevConfig+buildQemuForwardings(c.publishedPorts))
 	} else {
 		qemuArgs = append(qemuArgs, "-net", "none")
 	}
 
-	if c.gui != true {
+	if !c.gui {
 		qemuArgs = append(qemuArgs, "-nographic")
 	}
 
@@ -319,30 +307,23 @@ func (c *config) discoverBinaries() error {
 	var err error
 	c.qemuBinPath, err = exec.LookPath(qemuBinPath)
 	if err != nil {
-		return fmt.Errorf("Unable to find %s within the $PATH", qemuBinPath)
+		return fmt.Errorf("unable to find %s within the $PATH", qemuBinPath)
 	}
 
 	c.qemuImgPath, err = exec.LookPath(qemuImgPath)
 	if err != nil {
-		return fmt.Errorf("Unable to find %s within the $PATH", qemuImgPath)
+		return fmt.Errorf("unable to find %s within the $PATH", qemuImgPath)
 	}
 
 	return nil
 }
 
-func buildQemuForwardings(publishedPorts []PublishedPort) (string, error) {
-	if len(publishedPorts) == 0 {
-		return "", nil
-	}
+func buildQemuForwardings(publishedPorts []PublishedPort) string {
 	var forwardings string
 	for _, p := range publishedPorts {
-		hostPort := p.Host
-		guestPort := p.Guest
-
-		forwardings = fmt.Sprintf("%s,hostfwd=%s::%d-:%d", forwardings, p.Protocol, hostPort, guestPort)
+		forwardings = fmt.Sprintf("%s,hostfwd=%s::%d-:%d", forwardings, p.Protocol, p.Host, p.Guest)
 	}
-
-	return forwardings, nil
+	return forwardings
 }
 
 func haveKVM() bool {

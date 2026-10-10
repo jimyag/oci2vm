@@ -25,7 +25,6 @@ var (
 	defaultAccel string
 	enableGUI    bool
 	disks        Disks
-	data         string
 	accel        string
 	arch         string
 	cpus         uint

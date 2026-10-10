@@ -4,7 +4,6 @@ package oci2vm
 
 import (
 	"bytes"
-	"context"
 	"os"
 	osexec "os/exec"
 	"path/filepath"
@@ -124,8 +123,7 @@ func TestDockerImageConfigRunsInteractive(t *testing.T) {
 }
 
 func TestImageFlatten(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	const (
 		img        = "oci2vm-flatten-test"

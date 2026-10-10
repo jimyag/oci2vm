@@ -77,11 +77,10 @@ docs-up-to-date:
 	@$(MAKE) cli-docs
 	@git diff --quiet -- docs ':(exclude)docs/content/reference/oci2vm_run_qemu.md' || (git --no-pager diff -- docs ':(exclude)docs/content/reference/oci2vm_run_qemu.md'; echo "Please regenerate the documentation with 'make cli-docs'"; exit 1)
 
-check-fmt:
-	@[ "$(gofmt -l $(find . -name '*.go') 2>&1)" = "" ]
-
-vet:
-	@go list ./...|grep -v scratch|GOOS=linux xargs go vet
+.PHONY: lint
+lint:
+	@go generate ./...
+	@golangci-lint run ./...
 
 build-dev: docker-build .build
 

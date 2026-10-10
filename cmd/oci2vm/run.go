@@ -21,12 +21,10 @@ import (
 	"github.com/jimyag/oci2vm/cmd/oci2vm/run"
 )
 
-var (
-	runCmd = &cobra.Command{
-		Use:   "run",
-		Short: "Run the virtual machine image",
-	}
-)
+var runCmd = &cobra.Command{
+	Use:   "run",
+	Short: "Run the virtual machine image",
+}
 
 func init() {
 	rootCmd.AddCommand(runCmd)

@@ -19,6 +19,7 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -234,7 +235,6 @@ func NewImage(ctx context.Context, tag string, imageTmpPath string) (*image, err
 }
 
 type image struct {
-	tag      string
 	img      v1.Image
 	dir      string
 	Config   string   `json:"Config"`
@@ -251,11 +251,8 @@ func (i image) Flatten(ctx context.Context, out string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	if _, err := io.Copy(f, mutate.Extract(i.img)); err != nil {
-		return err
-	}
-	if err := f.Close(); err != nil {
+	_, err = io.Copy(f, mutate.Extract(i.img))
+	if err := errors.Join(err, f.Close()); err != nil {
 		return err
 	}
 	if err := exec.Run(ctx, "tar", "xvf", tar, "-C", out); err != nil {

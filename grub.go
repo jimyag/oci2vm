@@ -54,9 +54,7 @@ func (g grub) Setup(ctx context.Context, dev, root string, cmdline string) error
 	return nil
 }
 
-type grubProvider struct {
-	config Config
-}
+type grubProvider struct{}
 
 func (g grubProvider) New(c Config, r OSRelease, arch string) (Bootloader, error) {
 	if arch != "x86_64" {

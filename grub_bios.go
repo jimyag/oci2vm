@@ -46,9 +46,7 @@ func (g grubBios) Setup(ctx context.Context, dev, root string, cmdline string) e
 	return nil
 }
 
-type grubBiosProvider struct {
-	config Config
-}
+type grubBiosProvider struct{}
 
 func (g grubBiosProvider) New(c Config, r OSRelease, arch string) (Bootloader, error) {
 	if arch != "x86_64" {

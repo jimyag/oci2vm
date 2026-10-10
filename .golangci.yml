@@ -1,0 +1,66 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+  relative-path-mode: gomod
+
+linters:
+  default: standard
+  enable:
+    - asciicheck
+    - bodyclose
+    - copyloopvar
+    - durationcheck
+    - errorlint
+    - gocheckcompilerdirectives
+    - gocritic
+    - gosec
+    - misspell
+    - modernize
+    - nilerr
+    - nilnesserr
+    - nolintlint
+    - unconvert
+    - unparam
+    - usetesting
+    - wastedassign
+  settings:
+    errcheck:
+      # best effort clean up: a failure leaves a temporary file, directory,
+      # image or connection behind
+      exclude-functions:
+        - os.Remove
+        - os.RemoveAll
+        - github.com/jimyag/oci2vm/pkg/docker.Remove
+        - (golang.org/x/crypto/ssh.Conn).Close
+        - (*golang.org/x/crypto/ssh.Session).Close
+        - (net.Conn).Close
+        - (net.Listener).Close
+        # always return nil
+        - (*io.PipeReader).Close
+        - (*io.PipeWriter).Close
+  exclusions:
+    warn-unused: true
+    rules:
+      - path: _test\.go
+        linters:
+          - gosec
+          - unparam
+      # oci2vm runs docker, qemu and the disk tools with the paths and arguments
+      # of its flags, reads the files they name, and writes the virtual machine
+      # root filesystem, whose directories and files need the 0755 and 0644 modes;
+      # errcheck and its exclusions cover the unchecked errors of G104
+      - linters:
+          - gosec
+        text: "G(104|204|301|304|306|703):"
+
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - goimports
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

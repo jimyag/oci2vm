@@ -48,7 +48,7 @@ func Info(ctx context.Context, in string) (*ImgInfo, error) {
 		var inAbs string
 		inAbs, err = filepath.Abs(in)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get absolute path for %q: %v", in, err)
+			return nil, fmt.Errorf("failed to get absolute path for %q: %w", in, err)
 		}
 		inMount := filepath.Dir(inAbs)
 		in := filepath.Join("/in", filepath.Base(inAbs))
@@ -71,7 +71,7 @@ func Info(ctx context.Context, in string) (*ImgInfo, error) {
 		o, err = exec2.CommandContext(ctx, "qemu-img", "info", in, "--output", "json").CombinedOutput()
 	}
 	if err != nil {
-		return nil, fmt.Errorf("%v: %s", err, string(o))
+		return nil, fmt.Errorf("%w: %s", err, string(o))
 	}
 	var i ImgInfo
 	if err := json.Unmarshal(o, &i); err != nil {
@@ -86,14 +86,14 @@ func Convert(ctx context.Context, format, in, out string) error {
 	}
 	inAbs, err := filepath.Abs(in)
 	if err != nil {
-		return fmt.Errorf("failed to get absolute path for %q: %v", in, err)
+		return fmt.Errorf("failed to get absolute path for %q: %w", in, err)
 	}
 	inMount := filepath.Dir(inAbs)
 	in = filepath.Join("/in", filepath.Base(inAbs))
 
 	outAbs, err := filepath.Abs(out)
 	if err != nil {
-		return fmt.Errorf("failed to get absolute path for %q: %v", out, err)
+		return fmt.Errorf("failed to get absolute path for %q: %w", out, err)
 	}
 	outMount := filepath.Dir(outAbs)
 	out = filepath.Join("/out", filepath.Base(outAbs))

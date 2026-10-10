@@ -53,7 +53,7 @@ var (
 					return err
 				}
 				if !strings.HasPrefix(dockerFileAbsPath, ctxAbsPath) {
-					return fmt.Errorf("Dockerfile must be in the context directory path")
+					return fmt.Errorf("the Dockerfile must be in the context directory path")
 				}
 				outputPath, err := filepath.Abs(output)
 				if err != nil {

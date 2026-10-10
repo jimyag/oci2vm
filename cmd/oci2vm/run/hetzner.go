@@ -18,6 +18,7 @@ package run
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -40,7 +41,7 @@ import (
 )
 
 const (
-	hetznerTokenEnv = "HETZNER_TOKEN"
+	hetznerTokenEnv = "HETZNER_TOKEN" //nolint:gosec // G101: the name of the variable, not a token
 	serverImg       = "ubuntu-20.04"
 	vmBlock         = "sda"
 	vmBlockPath     = "/dev/" + vmBlock
@@ -91,7 +92,7 @@ func runHetzner(ctx context.Context, imgPath string, stdin io.Reader, stderr io.
 	if i.Format != "raw" {
 		logrus.Warnf("image format is %s, expected raw", i.Format)
 		rawPath := filepath.Join(os.TempDir(), "oci2vm", "run", filepath.Base(imgPath)+".raw")
-		if err := os.MkdirAll(filepath.Dir(rawPath), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(rawPath), 0o755); err != nil {
 			return err
 		}
 		defer os.RemoveAll(rawPath)
@@ -109,7 +110,7 @@ func runHetzner(ctx context.Context, imgPath string, stdin io.Reader, stderr io.
 	if err != nil {
 		return err
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
 
 	c := hcloud.NewClient(hcloud.WithToken(GetStringValue(hetznerTokenEnv, hetznerToken, "")))
 	st, _, err := c.ServerType.GetByName(ctx, hetznerVMType)
@@ -143,7 +144,7 @@ func runHetzner(ctx context.Context, imgPath string, stdin io.Reader, stderr io.
 		ServerType:       st,
 		Image:            imgs[0],
 		Location:         l,
-		StartAfterCreate: hcloud.Ptr(false),
+		StartAfterCreate: new(false),
 	})
 	if err != nil {
 		return err
@@ -155,12 +156,11 @@ func runHetzner(ctx context.Context, imgPath string, stdin io.Reader, stderr io.
 		}
 		logrus.Infof("removing server %s", hetznerServerName)
 		// we use context.Background() here because we don't want the request to fail if the context has been cancelled
-		if _, err := c.Server.Delete(context.Background(), sres.Server); err != nil {
+		if _, _, err := c.Server.DeleteWithResult(context.Background(), sres.Server); err != nil {
 			logrus.Fatalf("failed to remove server: %v", err)
 		}
 	}()
-	_, errs := c.Action.WatchProgress(ctx, sres.Action)
-	if err := <-errs; err != nil {
+	if err := c.Action.WaitFor(ctx, sres.Action); err != nil {
 		return err
 	}
 	logrus.Infof("server created with ip: %s", sres.Server.PublicNet.IPv4.IP.String())
@@ -169,8 +169,7 @@ func runHetzner(ctx context.Context, imgPath string, stdin io.Reader, stderr io.
 	if err != nil {
 		return err
 	}
-	_, errs = c.Action.WatchProgress(ctx, rres.Action)
-	if err := <-errs; err != nil {
+	if err := c.Action.WaitFor(ctx, rres.Action); err != nil {
 		return err
 	}
 	logrus.Infof("powering on server")
@@ -178,8 +177,7 @@ func runHetzner(ctx context.Context, imgPath string, stdin io.Reader, stderr io.
 	if err != nil {
 		return err
 	}
-	_, errs = c.Action.WatchProgress(ctx, pres)
-	if err := <-errs; err != nil {
+	if err := c.Action.WaitFor(ctx, pres); err != nil {
 		return err
 	}
 	logrus.Infof("connecting to server via ssh")
@@ -198,14 +196,11 @@ func runHetzner(ctx context.Context, imgPath string, stdin io.Reader, stderr io.
 	if err != nil {
 		return err
 	}
-	if err := sftpc.Chmod(sparsecatPath, 0755); err != nil {
+	if err := sftpc.Chmod(sparsecatPath, 0o755); err != nil {
 		return err
 	}
-	defer f.Close()
-	if _, err := io.Copy(f, bytes.NewReader(sparsecatBin)); err != nil {
-		return err
-	}
-	if err := f.Close(); err != nil {
+	_, err = io.Copy(f, bytes.NewReader(sparsecatBin))
+	if err := errors.Join(err, f.Close()); err != nil {
 		return err
 	}
 	serrs := make(chan error, 2)
@@ -220,7 +215,7 @@ func runHetzner(ctx context.Context, imgPath string, stdin io.Reader, stderr io.
 			cmd := "apt update && apt install -y cloud-guest-utils"
 			logrus.Debugf("$ %s", cmd)
 			if b, err := s.CombinedOutput(cmd); err != nil {
-				return fmt.Errorf("%v: %s", err, string(b))
+				return fmt.Errorf("%w: %s", err, string(b))
 			}
 			return nil
 		}()
@@ -250,7 +245,7 @@ func runHetzner(ctx context.Context, imgPath string, stdin io.Reader, stderr io.
 					select {
 					case <-tk.C:
 						b := pr.Progress()
-						logrus.Infof("%s / %d%% transfered (%s/s)", humanize.Bytes(uint64(b)), int(float64(b)/float64(i.VirtualSize)*100), humanize.Bytes(uint64(b-last)))
+						logrus.Infof("%s / %d%% transferred (%s/s)", humanize.Bytes(uint64(b)), int(float64(b)/float64(i.VirtualSize)*100), humanize.Bytes(uint64(b-last))) //nolint:gosec // G115: the transferred bytes only grow
 						last = b
 					case <-ctx.Done():
 						logrus.Warnf("context cancelled")
@@ -269,14 +264,14 @@ func runHetzner(ctx context.Context, imgPath string, stdin io.Reader, stderr io.
 			}
 			logrus.Debugf("$ %s", cmd)
 			if b, err := wses.CombinedOutput(cmd); err != nil {
-				return fmt.Errorf("%v: %s", err, string(b))
+				return fmt.Errorf("%w: %s", err, string(b))
 			} else {
 				logrus.Debug(string(b))
 			}
 			return nil
 		}()
 	}()
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		select {
 		case err := <-serrs:
 			if err != nil {
@@ -296,7 +291,7 @@ func runHetzner(ctx context.Context, imgPath string, stdin io.Reader, stderr io.
 	logrus.Debugf("$ %s", cmd)
 	b, err := nses.CombinedOutput(cmd)
 	if err != nil {
-		return fmt.Errorf("%v: %s", err, string(b))
+		return fmt.Errorf("%w: %s", err, string(b))
 	}
 	logrus.Debug(string(b))
 	parts := strings.Fields(strings.TrimSuffix(string(b), "\n"))
@@ -313,7 +308,7 @@ func runHetzner(ctx context.Context, imgPath string, stdin io.Reader, stderr io.
 	cmd = fmt.Sprintf("growpart %s %d", vmBlockPath, vmPartNumber)
 	logrus.Debugf("$ %s", cmd)
 	if b, err := gses.CombinedOutput(cmd); err != nil {
-		return fmt.Errorf("%v: %s", err, string(b))
+		return fmt.Errorf("%w: %s", err, string(b))
 	} else {
 		logrus.Debug(string(b))
 	}
@@ -326,7 +321,7 @@ func runHetzner(ctx context.Context, imgPath string, stdin io.Reader, stderr io.
 	cmd = fmt.Sprintf("e2fsck -yf %s%d", vmBlockPath, vmPartNumber)
 	logrus.Debugf("$ %s", cmd)
 	if b, err := cses.CombinedOutput(cmd); err != nil {
-		return fmt.Errorf("%v: %s", err, string(b))
+		return fmt.Errorf("%w: %s", err, string(b))
 	} else {
 		logrus.Debug(string(b))
 	}
@@ -339,15 +334,14 @@ func runHetzner(ctx context.Context, imgPath string, stdin io.Reader, stderr io.
 	cmd = fmt.Sprintf("resize2fs %s%d", vmBlockPath, vmPartNumber)
 	logrus.Debugf("$ %s", cmd)
 	if b, err := eses.CombinedOutput(cmd); err != nil {
-		return fmt.Errorf("%v: %s", err, string(b))
+		return fmt.Errorf("%w: %s", err, string(b))
 	}
 	logrus.Infof("rebooting server")
 	rbres, _, err := c.Server.Reboot(ctx, sres.Server)
 	if err != nil {
 		return err
 	}
-	_, errs = c.Action.WatchProgress(ctx, rbres)
-	if err := <-errs; err != nil {
+	if err := c.Action.WaitFor(ctx, rbres); err != nil {
 		return err
 	}
 	remove = false

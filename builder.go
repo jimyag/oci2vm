@@ -45,10 +45,10 @@ ff02::1 ip6-allnodes
 ff02::2 ip6-allrouters
 ff02::3 ip6-allhosts
 `
-	perm os.FileMode = 0644
+	perm os.FileMode = 0o644
 )
 
-var formats = []string{"qcow2", "qed", "raw", "vdi", "vhd", "vhd", "vhdx", "vmdk"}
+var formats = []string{"qcow2", "qed", "raw", "vdi", "vhd", "vhdx", "vmdk"}
 
 type Builder interface {
 	Build(ctx context.Context) (err error)
@@ -60,7 +60,6 @@ type builder struct {
 	config     Config
 	bootloader Bootloader
 
-	src     string
 	img     *image
 	diskRaw string
 	diskOut string
@@ -196,9 +195,10 @@ func NewBuilder(ctx context.Context, workdir, imgTag, disk string, size uint64, 
 	if hostname == "" {
 		hostname = "localhost"
 	}
-	hosts := hosts
+	var etcHosts strings.Builder
+	etcHosts.WriteString(hosts)
 	for k, v := range extraHosts {
-		hosts += fmt.Sprintf("%s %s\n", v, k)
+		fmt.Fprintf(&etcHosts, "%s %s\n", v, k)
 	}
 	b := &builder{
 		osRelease:    osRelease,
@@ -219,7 +219,7 @@ func NewBuilder(ctx context.Context, workdir, imgTag, disk string, size uint64, 
 		hostname:     hostname,
 		dns:          dns,
 		dnsSearch:    dnsSearch,
-		hosts:        hosts,
+		hosts:        etcHosts.String(),
 		entrypoint:   entrypoint,
 		imageEnv:     imageEnv,
 	}
@@ -241,11 +241,11 @@ func (b *builder) Build(ctx context.Context) (err error) {
 		if err := b.unmountImg(context.Background()); err != nil {
 			logrus.WithError(err).Error("failed to unmount")
 		}
-		if err := b.cleanUp(context.Background()); err != nil {
+		if err := b.cleanUp(); err != nil {
 			logrus.WithError(err).Error("failed to cleanup")
 		}
 	}()
-	if err = b.cleanUp(ctx); err != nil {
+	if err = b.cleanUp(); err != nil {
 		return err
 	}
 	if err = b.makeImg(ctx); err != nil {
@@ -269,13 +269,13 @@ func (b *builder) Build(ctx context.Context) (err error) {
 	if err = b.convert2Img(ctx); err != nil {
 		return err
 	}
-	if err = b.cleanUp(ctx); err != nil {
+	if err = b.cleanUp(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (b *builder) cleanUp(ctx context.Context) error {
+func (b *builder) cleanUp() error {
 	return os.RemoveAll(b.diskRaw)
 }
 
@@ -290,7 +290,8 @@ func (b *builder) makeImg(ctx context.Context) error {
 
 	var args []string
 	if b.splitBoot {
-		args = []string{"-s", b.diskRaw,
+		args = []string{
+			"-s", b.diskRaw,
 			"mklabel", "msdos", "mkpart", "primary", "1Mib", fmt.Sprintf("%dMib", b.bootSize),
 			"mkpart", "primary", fmt.Sprintf("%dMib", b.bootSize), "100%",
 			"set", "1", "boot", "on",
@@ -328,9 +329,9 @@ func (b *builder) mountImg(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		defer f.Close()
 		defer os.Remove(f.Name())
-		if _, err := f.WriteString(b.luksPassword); err != nil {
+		_, err = f.WriteString(b.luksPassword)
+		if err := errors.Join(err, f.Close()); err != nil {
 			return err
 		}
 		// cryptsetup luksFormat --batch-mode --verify-passphrase --type luks2 $ROOT_DEVICE $KEY_FILE
@@ -508,7 +509,7 @@ func (b *builder) installBootloader(ctx context.Context) error {
 	// container, so create the link for the duration of the setup.
 	link := filepath.Join("/dev/disk/by-uuid", b.rootUUID)
 	if _, err := os.Lstat(link); errors.Is(err, fs.ErrNotExist) {
-		if err := os.MkdirAll(filepath.Dir(link), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
 			return err
 		}
 		if err := os.Symlink(ifElse(b.isLuksEnabled(), b.mappedCryptRoot, b.rootPart), link); err != nil {
@@ -558,7 +559,7 @@ func (b *builder) setupResolvConf() error {
 	if len(b.dns) == 0 && len(b.dnsSearch) == 0 && b.isResolvedEnabled() {
 		return os.Symlink("../run/systemd/resolve/stub-resolv.conf", p)
 	}
-	return os.WriteFile(p, []byte(b.resolvConf()), 0644)
+	return os.WriteFile(p, []byte(b.resolvConf()), 0o644)
 }
 
 func (b *builder) isResolvedEnabled() bool {
@@ -578,7 +579,7 @@ func (b *builder) setupEntrypointService() error {
 	if err := (DockerImage{DockerImageConfig: *b.entrypoint}).AsRunScript(&script); err != nil {
 		return err
 	}
-	if err := b.chWriteFileAll(entrypointScript, script.String(), 0755); err != nil {
+	if err := b.chWriteFileAll(entrypointScript, script.String(), 0o755); err != nil {
 		return err
 	}
 	svc := newEntrypointService(b.entrypoint.User)
@@ -588,7 +589,7 @@ func (b *builder) setupEntrypointService() error {
 			return err
 		}
 		path := "/etc/init.d/" + entrypointName
-		if err := b.chWriteFileAll(path, def.String(), 0755); err != nil {
+		if err := b.chWriteFileAll(path, def.String(), 0o755); err != nil {
 			return err
 		}
 		return b.chSymlink(path, "/etc/runlevels/default/"+entrypointName)
@@ -615,7 +616,7 @@ func (b *builder) setupImageEnv() error {
 
 // chWriteFileAll is chWriteFile creating the missing parent directories.
 func (b *builder) chWriteFileAll(path string, content string, perm os.FileMode) error {
-	if err := os.MkdirAll(filepath.Dir(b.chPath(path)), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(b.chPath(path)), 0o755); err != nil {
 		return err
 	}
 	return b.chWriteFile(path, content, perm)
@@ -623,7 +624,7 @@ func (b *builder) chWriteFileAll(path string, content string, perm os.FileMode) 
 
 // chSymlink creates link pointing to target, both being paths inside the image.
 func (b *builder) chSymlink(target, link string) error {
-	if err := os.MkdirAll(filepath.Dir(b.chPath(link)), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(b.chPath(link)), 0o755); err != nil {
 		return err
 	}
 	if err := os.RemoveAll(b.chPath(link)); err != nil {
@@ -656,8 +657,7 @@ func block(path string, size uint64) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	return f.Truncate(int64(size))
+	return errors.Join(f.Truncate(int64(size)), f.Close()) //nolint:gosec // G115: an overflowed size is negative and Truncate rejects it
 }
 
 func (b *builder) checkDependencies() error {
@@ -675,7 +675,7 @@ func (b *builder) checkDependencies() error {
 }
 
 func OutputFormats() []string {
-	return formats[:]
+	return formats
 }
 
 func ifElse(v bool, t string, f string) string {

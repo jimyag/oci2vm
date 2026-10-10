@@ -78,8 +78,7 @@ func Convert(ctx context.Context, img string, opts ...ConvertOption) error {
 		if err != nil {
 			return err
 		}
-		defer f.Close()
-		if err := d.Render(f); err != nil {
+		if err := errors.Join(d.Render(f), f.Close()); err != nil {
 			return err
 		}
 		logrus.Infof("building kernel enabled image")
@@ -108,7 +107,7 @@ func Convert(ctx context.Context, img string, opts ...ConvertOption) error {
 	if err != nil {
 		return err
 	}
-	defer b.Close()
+	defer func() { _ = b.Close() }()
 	if err := b.Build(ctx); err != nil {
 		return err
 	}
@@ -124,23 +123,23 @@ func Convert(ctx context.Context, img string, opts ...ConvertOption) error {
 func MoveFile(sourcePath, destPath string) error {
 	inputFile, err := os.Open(sourcePath)
 	if err != nil {
-		return fmt.Errorf("failed to open source file: %s", err)
+		return fmt.Errorf("failed to open source file: %w", err)
 	}
 	outputFile, err := os.Create(destPath)
 	if err != nil {
-		inputFile.Close()
-		return fmt.Errorf("failed to open dest file: %s", err)
+		_ = inputFile.Close()
+		return fmt.Errorf("failed to open dest file: %w", err)
 	}
 	_, err = sparsecat.NewDecoder(sparsecat.NewEncoder(inputFile)).WriteTo(outputFile)
-	inputFile.Close()
+	_ = inputFile.Close()
 	// the source is only removed once the output is closed without error
 	if err := errors.Join(err, outputFile.Close()); err != nil {
-		return fmt.Errorf("failed to write to output file: %s", err)
+		return fmt.Errorf("failed to write to output file: %w", err)
 	}
 	// The copy was successful, so now delete the original file
 	err = os.Remove(sourcePath)
 	if err != nil {
-		return fmt.Errorf("failed to remove original file: %s", err)
+		return fmt.Errorf("failed to remove original file: %w", err)
 	}
 	return nil
 }

@@ -100,7 +100,7 @@ func TestConvert(t *testing.T) {
 
 	var testImgs []img
 imgs:
-	for _, v := range strings.Split(*imgs, ",") {
+	for v := range strings.SplitSeq(*imgs, ",") {
 		for _, img := range images {
 			if img.name == v {
 				testImgs = append(testImgs, img)
@@ -115,7 +115,6 @@ imgs:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			dir := filepath.Join("/tmp", "oci2vm-e2e", tt.name)
 			require.NoError(os.MkdirAll(dir, os.ModePerm))
 

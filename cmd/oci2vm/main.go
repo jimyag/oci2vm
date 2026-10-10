@@ -36,7 +36,6 @@ import (
 var (
 	verbose    = false
 	timeFormat = ""
-	format     = "qcow2"
 
 	rootCmd = &cobra.Command{
 		Use:          "oci2vm",
@@ -60,7 +59,7 @@ var (
 			// make the zsh completion work when sourced with `source <(oci2vm completion zsh)`
 			if cmd.Name() == "zsh" && cmd.Parent() != nil && cmd.Parent().Name() == "completion" {
 				zshHead := fmt.Sprintf("#compdef %[1]s\ncompdef _%[1]s %[1]s\n", cmd.Root().Name())
-				cmd.OutOrStdout().Write([]byte(zshHead))
+				_, _ = fmt.Fprint(cmd.OutOrStdout(), zshHead)
 			}
 		},
 	}
@@ -84,7 +83,7 @@ func main() {
 
 func init() {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "debug", "d", false, "Enable Debug output")
-	rootCmd.PersistentFlags().MarkDeprecated("debug", "use -v instead")
+	_ = rootCmd.PersistentFlags().MarkDeprecated("debug", "use -v instead")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable Verbose output")
 	rootCmd.PersistentFlags().StringVar(&timeFormat, "time", "none", "Enable formated timed output, valide formats: 'relative (rel | r)', 'full (f)'")
 	color.NoColor = false

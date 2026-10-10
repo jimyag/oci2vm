@@ -54,9 +54,7 @@ func (g grubEFI) Setup(ctx context.Context, dev, root string, cmdline string) er
 	return nil
 }
 
-type grubEFIProvider struct {
-	config Config
-}
+type grubEFIProvider struct{}
 
 func (g grubEFIProvider) New(c Config, r OSRelease, arch string) (Bootloader, error) {
 	if err := checkGrubEFISupport(r); err != nil {

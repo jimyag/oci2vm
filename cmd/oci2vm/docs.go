@@ -29,7 +29,7 @@ var docsCmd = &cobra.Command{
 	Args:   cobra.ExactArgs(1),
 	Hidden: true,
 	Run: func(cmd *cobra.Command, args []string) {
-		if err := os.MkdirAll(args[0], 0755); err != nil {
+		if err := os.MkdirAll(args[0], 0o755); err != nil {
 			logrus.Fatal(err)
 		}
 		cmd.Root().DisableAutoGenTag = true
