@@ -8,21 +8,17 @@ theme:
 repo_url: https://github.com/jimyag/oci2vm
 copyright: Copyright &copy; 2026 jimyag. Derived from d2vm, Copyright &copy; 2022 Linka Cloud
 nav:
-- Getting Started: index.md
-- Complete Example: full-example.md
+- Home: index.md
+- 简体中文: zh-CN.md
 - Command Line:
     - oci2vm: reference/oci2vm.md
     - build: reference/oci2vm_build.md
     - convert: reference/oci2vm_convert.md
     - run:
+        - run: reference/oci2vm_run.md
         - hetzner: reference/oci2vm_run_hetzner.md
         - qemu: reference/oci2vm_run_qemu.md
         - virtualbox: reference/oci2vm_run_vbox.md
-    - completion:
-        - bash: reference/oci2vm_completion_bash.md
-        - fish: reference/oci2vm_completion_fish.md
-        - powershell: reference/oci2vm_completion_powershell.md
-        - zsh: reference/oci2vm_completion_zsh.md
     - version: reference/oci2vm_version.md
 
 extra:

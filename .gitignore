@@ -11,8 +11,6 @@ dist/
 images
 /oci2vm
 /examples/build
-/examples/full/demo-magic
-/examples/full/inside
 .goreleaser.yaml
 docs/build
 docs-src

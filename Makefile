@@ -124,8 +124,8 @@ examples: build-dev
   		echo "Building $$f"; \
   		./oci2vm build -o examples/build/$$(basename $$f|cut -d'.' -f1).qcow2 -p root -f $$f examples --force; \
 	  done
-	@echo "Building examples/full/Dockerfile"
-	@./oci2vm build -o examples/build/full.qcow2 --build-arg=USER=adphi --build-arg=PASSWORD=adphi examples/full --force
+	@echo "Building examples/app"
+	@./oci2vm build -o examples/build/app.qcow2 examples/app --force
 
 cli-docs: .build
 	@rm -rf $(CLI_REFERENCE_PATH)

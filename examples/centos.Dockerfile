@@ -1,13 +1,5 @@
-FROM centos
+# CentOS Stream with tmux: oci2vm adds the kernel, cloud-init and an OpenSSH server
+FROM quay.io/centos/centos:stream10
 
-RUN sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* && \
-    sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
-
-RUN yum update -y
-RUN yum install -y qemu-guest-agent openssh-server && \
-    echo "PermitRootLogin yes" >> /etc/ssh/sshd_config && \
-    systemctl enable dbus.service && \
-    systemctl set-default graphical.target
-
-RUN echo "NETWORKING=yes" >> /etc/sysconfig/network && \
-    echo -e 'DEVICE="eth0"\nONBOOT="yes"\nBOOTPROTO="dhcp"\n' > /etc/sysconfig/network-scripts/ifcfg-eth0
+RUN dnf install -y tmux && \
+    dnf clean all

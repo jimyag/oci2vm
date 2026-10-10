@@ -1,4 +1,5 @@
 // Copyright 2022 Linka Cloud  All rights reserved.
+// Modifications copyright 2026 jimyag. See the git history for details.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,6 +33,12 @@ var docsCmd = &cobra.Command{
 			logrus.Fatal(err)
 		}
 		cmd.Root().DisableAutoGenTag = true
+		// the pages of the shell completion commands only repeat their help
+		for _, c := range cmd.Root().Commands() {
+			if c.Name() == "completion" {
+				c.Hidden = true
+			}
+		}
 		if err := doc.GenMarkdownTree(cmd.Root(), args[0]); err != nil {
 			logrus.Fatal(err)
 		}

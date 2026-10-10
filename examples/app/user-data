@@ -1,0 +1,5 @@
+#cloud-config
+# root logs in with this key: replace it with your public key, e.g. ~/.ssh/id_ed25519.pub
+disable_root: false
+ssh_authorized_keys:
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIReplaceWithYourPublicKey you@example.com

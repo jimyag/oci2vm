@@ -1,410 +1,317 @@
-# oci2vm (OCI image to Virtual Machine)
+# oci2vm
 
-[![Language: Go](https://img.shields.io/badge/lang-Go-6ad7e5.svg?style=flat-square&logo=go)](https://golang.org/)
+English | [简体中文](https://github.com/jimyag/oci2vm/blob/main/README.zh-CN.md)
 
-*Build virtual machine images from container images*
+oci2vm converts container images into bootable virtual machine disk images.
+
+It takes an image from the local Docker daemon, from a registry or built from a Dockerfile, installs a Linux kernel,
+a bootloader, cloud-init and an OpenSSH server with the package manager of the image distribution, and writes a
+qcow2, raw, vmdk, vdi, vhd, vhdx or qed disk, which boots with QEMU, libvirt, KubeVirt or VirtualBox.
+The image entrypoint runs as a service at boot, and the image environment is exported to login shells.
 
 oci2vm is a fork of [d2vm](https://github.com/linka-cloud/d2vm) by Linka Cloud, licensed under the
-[Apache License 2.0](LICENCE). It was imported from d2vm commit `7184ff1`, then added what is described in
-[Running the image entrypoint, cloud-init and SSH](#running-the-image-entrypoint-cloud-init-and-ssh)
-and fixes for older distribution releases. The git history records the changes, and [NOTICE](NOTICE) the attributions.
+[Apache License 2.0](https://github.com/jimyag/oci2vm/blob/main/LICENCE). [NOTICE](https://github.com/jimyag/oci2vm/blob/main/NOTICE) lists the attributions.
 
-The project is heavily inspired by the [article](https://iximiuz.com/en/posts/from-docker-container-to-bootable-linux-disk-image/) and the work done by [iximiuz](https://github.com/iximiuz) on [docker-to-linux](https://github.com/iximiuz/docker-to-linux).
+## How it works
 
-Many thanks to him.
+1. oci2vm reads `/etc/os-release` in the image to select the template of its distribution.
+2. It builds a temporary image from the image and the [template](https://github.com/jimyag/oci2vm/tree/main/templates), which installs the kernel, the init
+   system, the bootloader packages, cloud-init, the OpenSSH server and the network configuration.
+3. It writes the temporary image layers to a partitioned raw disk, then sets up `fstab`, the hostname, the name
+   servers, the entrypoint service and the bootloader.
+4. `qemu-img` converts the raw disk to the output format.
 
-**Status**: *alpha*
-
-## Supported Environments:
-
-**Only building Linux Virtual Machine images is supported.**
-
-**oci2vm** automatically runs build and convert commands inside Docker when not running on linux
-or when running without *root* privileges.
-
-*Note: windows should be working, but is totally untested.*
-
-## Supported VM Linux distributions:
-
-Working and tested:
-
-- [x] Ubuntu (18.04+)
-  Luks support is available only on Ubuntu 20.04+
-- [x] Debian (stretch+)
-  Luks support is available only on Debian buster+
-- [x] Alpine
-- [x] CentOS (8+)
-- [x] Rocky Linux
-- [x] AlmaLinux
-
-Unsupported:
-
-- [ ] RHEL
-
-The program uses the `/etc/os-release` file to discover the Linux distribution and install the Kernel,
-if the file is missing, the build cannot succeed.
-
-Obviously, **Distroless** images are not supported.
-
-## Prerequisites
-
-### osx
-- [Docker](https://docs.docker.com/get-docker/)
-- [QEMU](https://www.qemu.org/download/#macos) (optional)
-- [VirtualBox](https://www.virtualbox.org/wiki/Downloads) (optional)
-
-### Linux
-- [Docker](https://docs.docker.com/get-docker/)
-- util-linux
-- udev
-- parted
-- e2fsprogs
-- dosfstools (when using fat32)
-- mount
-- tar
-- extlinux (when using syslinux)
-- qemu-utils
-- cryptsetup (when using LUKS)
-- [QEMU](https://www.qemu.org/download/#linux) (optional)
-- [VirtualBox](https://www.virtualbox.org/wiki/Linux_Downloads) (optional)
-
-#### sudo or root privileges
-
-*sudo* or root privileges are required for `oci2vm` to performs operations that require root-level permissions, in particular:
-
-- mounting disk images and loopback devices requires [elevated privileges](https://linux.die.net/man/2/mount)
-- invoke `docker` commands, which require root-level permissions by default
-
-
-## Getting started
-
-### Install
-
-No release is published yet: oci2vm is built from source.
-
-#### From source
-
-Clone the git repository:
+## Quick start
 
 ```bash
 git clone https://github.com/jimyag/oci2vm && cd oci2vm
+make install
+oci2vm convert nginx:1.27-alpine -o nginx.qcow2
 ```
 
-Install using the *make*, *docker* and the Go tool chain:
+[Complete example](#complete-example) builds an application image, boots it with QEMU and logs in with SSH.
+
+## Installation
+
+Requirements:
+
+- Docker.
+- Go and make, to build oci2vm.
+- On Linux, root privileges (`sudo`), to set up the loop devices and mount the disk, and these packages:
+  util-linux, udev, parted, e2fsprogs, dosfstools, mount, tar, extlinux, qemu-utils, cryptsetup (for LUKS).
+
+On macOS and Windows, or on Linux without root privileges, the `build` and `convert` commands run in the
+`ghcr.io/jimyag/oci2vm` image, which already contains these packages. Windows is untested.
+
+No release is published yet. Build oci2vm from source:
 
 ```bash
+git clone https://github.com/jimyag/oci2vm && cd oci2vm
 make install
 ```
 
-The *oci2vm* binary is installed in the `$GOBIN` directory. `make install` also builds the `ghcr.io/jimyag/oci2vm`
-image, in which the binary runs the build and convert commands when not running on linux or without *root* privileges.
-
-```bash
-which oci2vm
-
-/go/bin/oci2vm
-```
-
-#### With Docker
-
-*Note: this will only work if both the source context (and Dockerfile) and the output directory are somewhere inside
-the directory where you run the command.*
-
-Build the image in the git repository, then define an alias running it:
+`make install` installs the `oci2vm` binary in `$GOBIN` and builds the `ghcr.io/jimyag/oci2vm` image with the same
+version. To run oci2vm with Docker only, build the image and define an alias:
 
 ```bash
 make docker-build
-alias oci2vm="docker run --rm -it -v /var/run/docker.sock:/var/run/docker.sock --privileged -v \$PWD:/oci2vm -w /oci2vm ghcr.io/jimyag/oci2vm:$(make show-version)"
+alias oci2vm="docker run --rm -it --privileged -v /var/run/docker.sock:/var/run/docker.sock -v \$PWD:/oci2vm -w /oci2vm ghcr.io/jimyag/oci2vm:$(make show-version)"
 ```
 
-### Generate shell completion
+With the alias, the build context, the Dockerfile and the output must be in the current directory.
 
-The *oci2vm* program supports shell completion for *bash*, *zsh* and *fish*.
-
-It can be enabled by running the following command:
+Shell completion is available for bash, zsh, fish and PowerShell:
 
 ```bash
-source <(oci2vm completion $(basename $SHELL))
+source <(oci2vm completion zsh)
 ```
 
-Or you can install the completion file in the shell completion directory by following the instructions:
+## Convert an image
 
 ```bash
-oci2vm completion $(basename $SHELL) --help
+oci2vm convert IMAGE -o disk.qcow2
 ```
 
+- oci2vm uses the image of the local Docker daemon when it exists, and pulls it from its registry otherwise.
+  `--pull` always pulls it, and `--platform linux/arm64` selects another architecture.
+- Pull the images of a private registry with `docker pull` first: when oci2vm runs in its image, it cannot use your
+  registry credentials.
+- An image tarball made by `docker save` or `podman save` keeps the image configuration. Load it first:
 
-### Converting an existing Docker Image to VM image:
+  ```bash
+  docker load -i app.tar
+  oci2vm convert app:latest -o app.qcow2
+  ```
+
+- A container filesystem tarball made by `docker export` has no image configuration: oci2vm then installs no
+  entrypoint service and exports no environment. Give them back when importing it:
+
+  ```bash
+  docker import --change 'ENV GREETING=hello' --change 'ENTRYPOINT ["/app/server"]' app-fs.tar app:fs
+  oci2vm convert app:fs -o app.qcow2
+  ```
+
+The image must be based on a [supported distribution](#supported-distributions), with `cat` and
+`/etc/os-release`: distroless and scratch images cannot be converted.
+
+## Build from a Dockerfile
 
 ```bash
-oci2vm convert --help
-```
-```
-Convert Docker image to vm image
-
-Usage:
-  oci2vm convert [docker image] [flags]
-
-Flags:
-      --append-to-cmdline string   Extra kernel cmdline arguments to append to the generated one
-      --add-host strings           Add a custom host-to-IP mapping (host:ip) to the /etc/hosts file in the generated image
-      --boot-fs string             Filesystem to use for the boot partition, ext4 or fat32
-      --boot-size uint             Size of the boot partition in MB (default 100)
-      --bootloader string          Bootloader to use: syslinux, grub, grub-bios, grub-efi, defaults to syslinux on amd64 and grub-efi on arm64
-      --dns strings                DNS servers to set in the generated image, defaults to the ones provided by DHCP
-      --dns-search strings         DNS search domains to set in the generated image
-      --force                      Override output qcow2 image
-  -h, --help                       help for convert
-      --hostname string            Hostname to set in the generated image (default "localhost")
-      --keep-cache                 Keep the images after the build
-      --luks-password string       Password to use for the LUKS encrypted root partition. If not set, the root partition will not be encrypted
-      --network-manager string     Network manager to use for the image: none, netplan, ifupdown
-  -o, --output string              The output image, the extension determine the image format, raw will be used if none. Supported formats: qcow2 qed raw vdi vhd vmdk (default "disk0.qcow2")
-  -p, --password string            Optional root user password
-      --platform string            Platform to use for the container disk image, linux/arm64 and linux/arm64 are supported (default "linux/amd64")
-      --pull                       Always pull docker image
-      --push                       Push the container disk image to the registry
-      --raw                        Just convert the container to virtual machine image without installing anything more
-  -s, --size string                The output image size (default "10G")
-      --split-boot                 Split the boot partition from the root partition
-  -t, --tag string                 Container disk Docker image tag
-
-Global Flags:
-      --time string   Enable formated timed output, valide formats: 'relative (rel | r)', 'full (f)' (default "none")
-  -v, --verbose       Enable Verbose output
-
+oci2vm build -f Dockerfile --build-arg VERSION=1.0 -o disk.qcow2 .
 ```
 
-Create an image based on the **ubuntu** official image:
+`build` runs `docker build` on the context directory, converts the built image like `convert`, then removes it unless
+`--keep-cache` is set.
+
+- Multi-stage Dockerfiles work: oci2vm converts the image of the final stage, which must be based on a supported
+  distribution. Use for instance `alpine` or `debian:12-slim` instead of `scratch` or distroless as the final stage.
+- `build` has no `--target` flag. To convert another stage, build it with Docker, then convert it:
+
+  ```bash
+  docker build --target debug -t app:debug .
+  oci2vm convert app:debug -o app-debug.qcow2
+  ```
+
+- When oci2vm runs in its image, only the context directory is mounted: the Dockerfile must be inside it.
+
+## What the virtual machine includes
+
+- The image `ENTRYPOINT` and `CMD` run at boot as the `oci2vm-entrypoint` service, a systemd unit or, on Alpine,
+  an OpenRC service, with the image `ENV`, `WORKDIR` and `USER`. The service runs the generated
+  `/usr/local/bin/oci2vm-entrypoint` script and restarts it when it fails. No service is installed when the image has
+  no command, or only starts an interactive shell or interpreter, as the distribution and language images do
+  (`sh`, `bash`, `python3` or `node` for instance).
+- `/etc/profile.d/oci2vm-env.sh` exports the image `ENV` to login shells: SSH sessions, console logins and `su -`.
+  `HOME`, `HOSTNAME`, `LOGNAME`, `SHELL`, `TERM` and `USER` keep the values of the login session. Commands run
+  without a login shell, such as `ssh host cmd`, and the other services do not read it, except on CentOS, Rocky Linux
+  and AlmaLinux, whose `/etc/bashrc` reads `/etc/profile.d`.
+- The variables whose names a shell cannot export, such as `my-var`, are skipped by the service and the login shells.
+- cloud-init applies at boot the users, SSH keys and user data of the datasource, such as a NoCloud or ConfigDrive
+  disk, or a KubeVirt `cloudInitNoCloud` volume:
+  - its network configuration is disabled (`/etc/cloud/cloud.cfg.d/99-oci2vm-network.cfg`): the image one is used;
+  - `growpart` and `resize2fs` let it extend the root filesystem to the disk size;
+  - on Debian, Kali and Ubuntu, its `locale` module is disabled (`99-oci2vm-locale.cfg`): the `locales` package is
+    missing from container images;
+  - without datasource, ds-identify disables it at boot. Alpine, Debian 9 and CentOS 7 have no ds-identify: there,
+    cloud-init only looks for NoCloud and ConfigDrive (`99-oci2vm-datasource.cfg`), instead of waiting minutes for
+    the metadata services of the cloud providers.
+- An OpenSSH server starts at boot. The host keys created during the build are removed: each virtual machine
+  generates its own.
+- The network is configured with DHCP on `eth0`:
+
+  | Distribution | Network configuration |
+  | --- | --- |
+  | Ubuntu 18.04 and later | netplan with systemd-networkd |
+  | Debian, Kali, Alpine | ifupdown |
+  | CentOS, Rocky Linux, AlmaLinux | NetworkManager |
+
+  `--network-manager` selects `netplan`, `ifupdown` or `none` on Debian, Kali and Ubuntu, and `ifupdown` or `none`
+  on Alpine.
+- The name servers come from DHCP, unless `--dns` or `--dns-search` set them. `--hostname` and `--add-host` set the
+  hostname and `/etc/hosts` entries.
+- When oci2vm runs as root, the output disk belongs to the user who ran `sudo`, or else to the owner of the output
+  directory.
+
+`--raw` converts the image as it is, without the template: the image must already contain a kernel and an init system,
+and gets neither cloud-init nor the OpenSSH server.
+
+## Disk and boot options
+
+| Option | Effect |
+| --- | --- |
+| `-o disk.EXT` | Output format from the extension: `qcow2`, `qed`, `raw`, `vdi`, `vhd`, `vhdx`, `vmdk`, raw when none |
+| `-s 10G` | Disk size, `10G` by default; cloud-init extends the root filesystem to it at boot |
+| `-p PASSWORD` | Root password; prefer SSH keys provided by cloud-init |
+| `--bootloader` | `syslinux` (default on amd64), `grub-bios`, `grub-efi` (the only one on arm64), or `grub` for BIOS and UEFI |
+| `--split-boot`, `--boot-fs`, `--boot-size` | Separate boot partition, ext4 or fat32, `100` MB by default |
+| `--luks-password` | Encrypts the root partition with LUKS |
+| `--append-to-cmdline` | Extra kernel command line arguments |
+| `--force` | Overwrites the output disk |
+
+`grub` and `grub-efi` use a FAT32 boot partition and need CentOS, Rocky Linux or AlmaLinux 9 or later. LUKS is not
+available before Ubuntu 20.04 and Debian 10. The [command reference](https://github.com/jimyag/oci2vm/blob/main/docs/content/reference/oci2vm.md) lists all the
+flags.
+
+## Run the virtual machine
+
+QEMU, amd64 disk on a Linux host with KVM:
 
 ```bash
-sudo oci2vm convert ubuntu -o ubuntu.qcow2 -p MyP4Ssw0rd
-```
-```
-Pulling image ubuntu
-Inspecting image ubuntu
-No network manager specified, using distribution defaults: netplan
-Docker image based on Ubuntu 22.04.1 LTS (Jammy Jellyfish)
-Building kernel enabled image
-Creating vm image
-Creating raw image
-Mounting raw image
-Creating raw image file system
-Copying rootfs to raw image
-Setting up rootfs
-Installing linux kernel
-Unmounting raw image
-Writing MBR
-Converting to qcow2
+qemu-system-x86_64 -accel kvm -cpu host -m 1024 -nographic \
+  -drive file=disk.qcow2,if=virtio \
+  -netdev user,id=n0,hostfwd=tcp::2222-:22 -device virtio-net-pci,netdev=n0
 ```
 
-You can now run your ubuntu image using the created `ubuntu.qcow2` image with **qemu**:
+QEMU, arm64 disk on a Mac with Apple silicon, where the disk boots with UEFI:
 
 ```bash
-oci2vm run qemu ubuntu.qcow2
-```
-```
-SeaBIOS (version 1.13.0-1ubuntu1.1)
-
-
-iPXE (http://ipxe.org) 00:03.0 CA00 PCI2.10 PnP PMM+BFF8C920+BFECC920 CA00
-
-
-
-Booting from Hard Disk...
-
-SYSLINUX 6.04 EDD 20191223 Copyright (C) 1994-2015 H. Peter Anvin et al
-Now booting the kernel from SYSLINUX...
-Loading /boot/vmlinuz... ok
-Loading /boot/initrd.img...ok
-[    0.000000] Linux version 5.4.0-109-generic (buildd@ubuntu) (gcc version 9)
-[    0.000000] Command line: BOOT_IMAGE=/boot/vmlinuz ro root=UUID=b117d206-b8
-[    0.000000] KERNEL supported cpus:
-[    0.000000]   Intel GenuineIntel
-[    0.000000]   AMD AuthenticAMD
-[    0.000000]   Hygon HygonGenuine
-[    0.000000]   Centaur CentaurHauls
-[    0.000000]   zhaoxin   Shanghai
-
-...
-
-Welcome to Ubuntu 20.04.4 LTS!
-
-[    3.610631] systemd[1]: Set hostname to <localhost>.
-[    3.838984] systemd[1]: Created slice system-getty.slice.
-[  OK  ] Created slice system-getty.slice.
-[    3.845038] systemd[1]: Created slice system-modprobe.slice.
-[  OK  ] Created slice system-modprobe.slice.
-[    3.852054] systemd[1]: Created slice system-serial\x2dgetty.slice.
-[  OK  ] Created slice system-serial\x2dgetty.slice.
-
-...
-
-Ubuntu 20.04.4 LTS localhost ttyS0
-
-localhost login:
+qemu-system-aarch64 -M virt -accel hvf -cpu host -m 1024 -nographic \
+  -bios /opt/homebrew/share/qemu/edk2-aarch64-code.fd \
+  -drive file=disk.qcow2,if=virtio \
+  -netdev user,id=n0,hostfwd=tcp::2222-:22 -device virtio-net-pci,netdev=n0
 ```
 
-Log in using the *root* user and the password configured at build time.
+An amd64 disk using `grub-efi` also needs UEFI firmware, such as `-bios /usr/share/ovmf/OVMF.fd` on Ubuntu.
+Attach a cloud-init seed disk with `-drive file=seed.iso,if=virtio,format=raw`.
 
-```
-localhost login: root
-Password:
+`oci2vm run qemu`, `oci2vm run vbox` and `oci2vm run hetzner` run a disk with QEMU, VirtualBox or on Hetzner Cloud:
+see the [command reference](https://github.com/jimyag/oci2vm/blob/main/docs/content/reference/oci2vm_run.md).
 
-
-Welcome to Ubuntu 20.04.4 LTS (GNU/Linux 5.4.0-109-generic x86_64)
-
- * Documentation:  https://help.ubuntu.com
- * Management:     https://landscape.canonical.com
- * Support:        https://ubuntu.com/advantage
-
-This system has been minimized by removing packages and content that are
-not required on a system that users do not log into.
-
-To restore this content, you can run the 'unminimize' command.
-
-The programs included with the Ubuntu system are free software;
-the exact distribution terms for each program are described in the
-individual files in /usr/share/doc/*/copyright.
-
-Ubuntu comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
-applicable law.
-
-root@localhost:~#
-```
-
-Type `poweroff` to shut down the vm.
-
-### Building a VM Image from a Dockerfile
-
-The example directory contains very minimalistic examples:
+For [KubeVirt](https://kubevirt.io/), `--tag` packages the disk as a
+[container disk](https://kubevirt.io/user-guide/storage/disks_and_volumes/#containerdisk) image, and `--push`
+pushes it:
 
 ```bash
-cd examples
+oci2vm convert app:latest -o app.qcow2 --tag registry.example.com/app-disk:latest --push
 ```
 
-*ubuntu.Dockerfile* :
+## Complete example
 
-```dockerfile
-FROM ubuntu
+[examples/app](https://github.com/jimyag/oci2vm/tree/main/examples/app) builds a Go web server in a multi-stage Dockerfile, whose final stage is based on
+Alpine. The virtual machine runs it as a service, and cloud-init installs your SSH key for root.
 
-RUN apt update && apt install -y openssh-server && \
-    echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
+1. Replace the key in [examples/app/user-data](https://github.com/jimyag/oci2vm/blob/main/examples/app/user-data) with your public key.
+2. Build the disk:
 
-```
+   ```bash
+   oci2vm build -o hello.qcow2 examples/app
+   ```
 
-Build the vm image:
+3. Create the cloud-init seed disk, on Linux with cloud-image-utils:
 
-The *build* command take most of its flags and arguments from the *docker build* command.
+   ```bash
+   cloud-localds seed.iso examples/app/user-data examples/app/meta-data
+   ```
 
-```bash
-oci2vm build --help
-```
+   or on macOS:
 
-```
-Build a vm image from Dockerfile
+   ```bash
+   mkdir seed && cp examples/app/user-data examples/app/meta-data seed/
+   hdiutil makehybrid -iso -joliet -default-volume-name cidata -o seed.iso seed
+   ```
 
-Usage:
-  oci2vm build [context directory] [flags]
+4. Boot it with QEMU, with the seed disk, forwarding the SSH and application ports. On a Linux amd64 host:
 
-Flags:
-      --append-to-cmdline string   Extra kernel cmdline arguments to append to the generated one
-      --add-host strings           Add a custom host-to-IP mapping (host:ip) to the /etc/hosts file in the generated image
-      --boot-fs string             Filesystem to use for the boot partition, ext4 or fat32
-      --boot-size uint             Size of the boot partition in MB (default 100)
-      --bootloader string          Bootloader to use: syslinux, grub, grub-bios, grub-efi, defaults to syslinux on amd64 and grub-efi on arm64
-      --dns strings                DNS servers to set in the generated image, defaults to the ones provided by DHCP
-      --dns-search strings         DNS search domains to set in the generated image
-      --build-arg stringArray      Set build-time variables
-  -f, --file string                Name of the Dockerfile
-      --force                      Override output qcow2 image
-  -h, --help                       help for build
-      --hostname string            Hostname to set in the generated image (default "localhost")
-      --keep-cache                 Keep the images after the build
-      --luks-password string       Password to use for the LUKS encrypted root partition. If not set, the root partition will not be encrypted
-      --network-manager string     Network manager to use for the image: none, netplan, ifupdown
-  -o, --output string              The output image, the extension determine the image format, raw will be used if none. Supported formats: qcow2 qed raw vdi vhd vmdk (default "disk0.qcow2")
-  -p, --password string            Optional root user password
-      --platform string            Platform to use for the container disk image, linux/arm64 and linux/arm64 are supported (default "linux/amd64")
-      --pull                       Always pull docker image
-      --push                       Push the container disk image to the registry
-      --raw                        Just convert the container to virtual machine image without installing anything more
-  -s, --size string                The output image size (default "10G")
-      --split-boot                 Split the boot partition from the root partition
-  -t, --tag string                 Container disk Docker image tag
+   ```bash
+   qemu-system-x86_64 -accel kvm -cpu host -m 1024 -nographic \
+     -drive file=hello.qcow2,if=virtio -drive file=seed.iso,if=virtio,format=raw \
+     -netdev user,id=n0,hostfwd=tcp::2222-:22,hostfwd=tcp::8080-:8080 -device virtio-net-pci,netdev=n0
+   ```
 
-Global Flags:
-      --time string   Enable formated timed output, valide formats: 'relative (rel | r)', 'full (f)' (default "none")
-  -v, --verbose       Enable Verbose output
+   On a Mac with Apple silicon:
 
-```
+   ```bash
+   qemu-system-aarch64 -M virt -accel hvf -cpu host -m 1024 -nographic \
+     -bios /opt/homebrew/share/qemu/edk2-aarch64-code.fd \
+     -drive file=hello.qcow2,if=virtio -drive file=seed.iso,if=virtio,format=raw \
+     -netdev user,id=n0,hostfwd=tcp::2222-:22,hostfwd=tcp::8080-:8080 -device virtio-net-pci,netdev=n0
+   ```
 
-```bash
-sudo oci2vm build -p MyP4Ssw0rd -f ubuntu.Dockerfile -o ubuntu.qcow2 .
-```
+5. Call the application and log in:
 
-Or if you want to create a VirtualBox image:
+   ```bash
+   curl http://localhost:8080   # Hello from oci2vm
+   ssh -p 2222 root@localhost
+   ```
 
-```bash
-sudo oci2vm build -p MyP4Ssw0rd -f ubuntu.Dockerfile -o ubuntu.vdi .
-```
+   In the virtual machine, `rc-service oci2vm-entrypoint status` shows the service, and `echo "$GREETING"` the image
+   environment.
 
-### Running the image entrypoint, cloud-init and SSH
+The [examples](https://github.com/jimyag/oci2vm/tree/main/examples) directory also contains Dockerfiles for Ubuntu, Debian, Alpine and CentOS Stream:
+`make examples` builds all of them.
 
-The virtual machine runs the image like a container would, and can be set up by cloud-init and reached by SSH:
+## Supported distributions
 
-- The image `ENTRYPOINT` and `CMD` run at boot as the `oci2vm-entrypoint` service (a systemd unit, or an OpenRC service on Alpine),
-  with the image `ENV`, `WORKDIR` and `USER`. The service runs the generated `/usr/local/bin/oci2vm-entrypoint` script
-  and restarts it when it fails. No service is installed when the image only starts an interactive program,
-  as the distribution and language images do, e.g. `/bin/bash`, `python3` or `node`.
-- The image `ENV` is exported to login shells (SSH sessions, console logins, `su -`) by `/etc/profile.d/oci2vm-env.sh`,
-  so that the commands typed in the virtual machine get the image `PATH` and variables. `HOME`, `HOSTNAME`, `LOGNAME`, `SHELL`,
-  `TERM` and `USER` keep the login session values. The other services do not read it, nor the commands run without
-  a login shell, e.g. `ssh host cmd`, except on the RHEL-like distributions (CentOS, Rocky Linux, AlmaLinux),
-  whose `/etc/bashrc` reads `/etc/profile.d`.
-- cloud-init is installed, so that users, SSH keys and user data can be provided at boot,
-  e.g. by KubeVirt `cloudInitNoCloud` volumes. The network stays configured by the image (DHCP on `eth0`):
-  the cloud-init network configuration is disabled in `/etc/cloud/cloud.cfg.d/99-oci2vm-network.cfg`.
-  `growpart` and `resize2fs` are installed, so that cloud-init extends the root filesystem to the disk size.
-  On Debian, Kali and Ubuntu, the cloud-init `locale` module is disabled in `/etc/cloud/cloud.cfg.d/99-oci2vm-locale.cfg`:
-  it needs the `locales` package, which container images do not ship.
-  When the virtual machine has no datasource, ds-identify disables cloud-init at boot. Alpine, Debian 9 and CentOS 7
-  do not run ds-identify: their cloud-init only looks for the NoCloud and ConfigDrive datasources
-  (`/etc/cloud/cloud.cfg.d/99-oci2vm-datasource.cfg`), instead of waiting minutes for the cloud metadata services.
-- An OpenSSH server is installed and enabled. The host keys generated at build time are removed:
-  each virtual machine generates its own at first boot.
+| Distribution | Tested releases | Notes |
+| --- | --- | --- |
+| Ubuntu | 18.04, 20.04, 22.04, 24.04, 26.04 | |
+| Debian | 9, 10, 11, 12, 13 | 9 to 11 install their packages from archive.debian.org |
+| Kali | rolling | tested on arm64 only |
+| Alpine | 3.16, 3.20 to 3.24 | OpenRC |
+| CentOS | 7, 8, Stream 8, Stream 9, Stream 10 | 7, 8 and Stream 8 install their packages from vault.centos.org |
+| Rocky Linux | 8, 9, 10 | |
+| AlmaLinux | 8, 9, 10 | |
 
-The `ENV` variables whose names a shell cannot export, e.g. containing a dash, are skipped.
-With `--raw`, which installs no package, neither cloud-init nor the OpenSSH server are added.
+The amd64 disks were tested with KVM and syslinux, and some with grub-efi; the arm64 disks with QEMU on Apple silicon
+and grub-efi. RHEL, the other distributions, and the distroless and scratch images are not supported.
 
-Unless `--dns` or `--dns-search` are set, the name servers are the ones provided by DHCP,
-through systemd-resolved when the image enables it (netplan), or written to `/etc/resolv.conf` by the DHCP client.
+## Limitations
 
-When run as root, `oci2vm` gives the output image to the user who ran `sudo`, or else to the owner of the output directory,
-e.g. the host directory mounted in the oci2vm container.
+- Distroless and scratch images, and final stages based on them, cannot be converted.
+- The interactive programs detected to skip the entrypoint service are `sh`, `ash`, `bash`, `dash`, `zsh`, `python`,
+  `python3`, `node`, `irb` and `jshell`. Another interactive command, such as `php -a`, becomes a service that stops
+  at once.
+- On arm64, the kernel command line uses the `ttyS0` serial console, which the QEMU `virt` machine does not have: the
+  serial console only shows the kernel messages, so log in with SSH.
+- Converting for another architecture than the host one runs the image under emulation: it is slow, and the CentOS 7
+  and Stream 8 initramfs generation fails on Apple silicon. The arm64 oci2vm image has no syslinux: amd64 disks
+  converted on arm64 hosts need `--bootloader grub-bios` or `grub-efi`.
 
-### KubeVirt Container Disk Images
+## Development
 
-Using the `--tag` flag with the `build` and `convert` commands, you can create a
-[Container Disk Image](https://kubevirt.io/user-guide/virtual_machines/disks_and_volumes/#containerdisk) for [KubeVirt](https://kubevirt.io/).
+| Command | Effect |
+| --- | --- |
+| `make .build` | Builds the `./oci2vm` binary |
+| `make docker-build` | Builds the `ghcr.io/jimyag/oci2vm:VERSION` image |
+| `make install` | Both, the binary in `$GOBIN` |
+| `make check-fmt`, `make vet` | Formatting and `go vet`, as the CI does |
+| `go test -run 'TestDockerImage\|TestImageEnvProfile' .` | Unit tests, without root nor Docker |
+| `make tests` | Tests of the root package, with `sudo` and Docker |
+| `make test-templates IMAGE=ubuntu:24.04` | Converts an image with its template (`TestConfig`) |
+| `make e2e` | Converts and boots images |
+| `make examples` | Builds the [examples](https://github.com/jimyag/oci2vm/tree/main/examples) |
+| `make cli-docs` | Regenerates the [command reference](https://github.com/jimyag/oci2vm/tree/main/docs/content/reference) |
+| `make serve-docs`, `make build-docs` | Serves or builds the documentation site |
 
-The `--push` flag will push the image to the registry.
+`TestConfig`, run by `make test-templates`, removes the images it converts, even those you had pulled before.
+Some flag defaults depend on the host: regenerate the command reference on linux/amd64, where the CI checks it with
+`make docs-up-to-date`. The CI runs the tests and builds on pull requests to `main` and on `v*` tags, and publishes
+neither binaries nor images; on `v*` tags, it deploys the documentation site to the `gh-pages` branch.
 
-### Complete example
+## License
 
-A complete example setting up a ZSH workstation is available in the [examples/full](examples/full/README.md) directory.
-
-
-### Internal Dockerfile templates
-
-You can find the Dockerfiles used to install the Kernel in the [templates](templates) directory.
-
-### TODO / Questions:
-
-- [x] Create service from `ENTRYPOINT` `CMD` `WORKDIR` and `ENV` instructions ?
-- [x] Inject Image `ENV` variables into `.bashrc` or other service environment file ?
-- [x] Use image layers to create *rootfs* instead of container ?
-
-### Acknowledgments
-
-The *run* commands are adapted from [linuxkit](https://github.com/docker/linuxkit).
+oci2vm is licensed under the [Apache License 2.0](https://github.com/jimyag/oci2vm/blob/main/LICENCE). It derives from
+[d2vm](https://github.com/linka-cloud/d2vm) by Linka Cloud, and its run commands are adapted from
+[LinuxKit](https://github.com/linuxkit/linuxkit): see [NOTICE](https://github.com/jimyag/oci2vm/blob/main/NOTICE). d2vm was inspired by the
+[article](https://iximiuz.com/en/posts/from-docker-container-to-bootable-linux-disk-image/) and the
+[docker-to-linux](https://github.com/iximiuz/docker-to-linux) project of [iximiuz](https://github.com/iximiuz).
