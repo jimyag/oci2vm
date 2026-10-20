@@ -22,6 +22,7 @@ show-version:
 # on -v, which is the --verbose flag of oci2vm
 VERSION_LDFLAGS = -X 'github.com/jimmicro/version.GitTag=$(VERSION)' -X 'github.com/jimmicro/version.BuildTime=$(shell date -u +%Y-%m-%dT%H:%M:%SZ)' -X 'github.com/jimmicro/version.EnableCmd=false'
 
+# renovate: datasource=github-releases depName=goreleaser/goreleaser
 GORELEASER_VERSION := v2.18.3
 GORELEASER_URL := https://github.com/goreleaser/goreleaser/releases/download/$(GORELEASER_VERSION)/goreleaser_Linux_x86_64.tar.gz
 
