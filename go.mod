@@ -2,6 +2,8 @@ module github.com/jimyag/oci2vm
 
 go 1.27
 
+toolchain go1.27.3
+
 require (
 	github.com/c2h5oh/datasize v0.0.0-20231215233829-aa82cc1e6500
 	github.com/dustin/go-humanize v1.0.1
