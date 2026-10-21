@@ -113,6 +113,8 @@ github.com/svenwiltink/sparsecat v1.0.1 h1:GZLaZ4ZunREtRMOzxb1KOnLu9qzKTkilvYrif
 github.com/svenwiltink/sparsecat v1.0.1/go.mod h1:TdtvJbeTZcd+3cMQpttW6MJl/iPGZT0GHmckep0hoxU=
 github.com/vbatts/tar-split v0.12.2 h1:w/Y6tjxpeiFMR47yzZPlPj/FcPLpXbTUi/9H7d3CPa4=
 github.com/vbatts/tar-split v0.12.2/go.mod h1:eF6B6i6ftWQcDqEn3/iGFRFRo8cBIMSJVOpnNdfTMFA=
+github.com/vbatts/tar-split v0.12.3 h1:Cd46rkGXI3Td4yrVNwU8ripbxFaQbmesqhjBUUYAJSw=
+github.com/vbatts/tar-split v0.12.3/go.mod h1:sQOc6OlqGCr7HkGx/IDBeKiTIvqhmj8KffNhEXG4Nq0=
 go.linka.cloud/console v0.0.0-20221115093718-f725374f9010 h1:H7QTK+cHKn6Qh8SjBUheQjAFtqjsZ8vwnHEqNYTzLCk=
 go.linka.cloud/console v0.0.0-20221115093718-f725374f9010/go.mod h1:w1z+5gBd/zKt0xt33JTP3GdeT9c0/vuaQeKPf8PgeB0=
 go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
