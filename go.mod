@@ -13,7 +13,7 @@ require (
 	github.com/hetznercloud/hcloud-go v1.59.2
 	github.com/jimmicro/version v1.1.0
 	github.com/joho/godotenv v1.5.1
-	github.com/pkg/sftp v1.13.10
+	github.com/pkg/sftp v1.13.12
 	github.com/sirupsen/logrus v1.9.4
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
@@ -21,8 +21,8 @@ require (
 	github.com/svenwiltink/sparsecat v1.0.1
 	go.linka.cloud/console v0.0.0-20221115093718-f725374f9010
 	go.uber.org/multierr v1.11.0
-	golang.org/x/crypto v0.47.0
-	golang.org/x/sys v0.44.0
+	golang.org/x/crypto v0.54.0
+	golang.org/x/sys v0.47.0
 )
 
 require (
@@ -55,9 +55,9 @@ require (
 	github.com/vbatts/tar-split v0.12.3 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/net v0.49.0 // indirect
-	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/text v0.33.0 // indirect
+	golang.org/x/net v0.56.0 // indirect
+	golang.org/x/sync v0.22.0 // indirect
+	golang.org/x/text v0.40.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
